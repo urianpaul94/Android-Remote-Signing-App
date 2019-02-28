@@ -23,6 +23,8 @@
                 <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
+        <activity android:name=".OTPpopUp"
+            android:theme="@style/AppTheme.CustomTheme">
+        </activity>
     </application>
-
 </manifest>

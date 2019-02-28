@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Cloud Signer</string>
+    <string name="login">Login</string>
+    <string name="phoneHint">+40755226113</string>
+    <string name="passwordHint">********</string>
+    <string name="enter_otp_code">Enter OTP Code</string>
+    <string name="send_otp">Send OTP</string>
+    <string name="otp_code">OTP Code</string>
+    <string name="mobile_remote_signer_v_1_0">Mobile Remote Signer V 1.0</string>
 </resources>
