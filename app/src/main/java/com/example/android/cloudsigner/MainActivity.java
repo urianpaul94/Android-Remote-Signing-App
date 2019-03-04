@@ -3,15 +3,21 @@ package com.example.android.cloudsigner;
 import android.content.Context;
 import android.content.Intent;
 import android.icu.text.SimpleDateFormat;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.support.v4.graphics.PathUtils;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.InputStream;
+import java.net.URI;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -21,6 +27,23 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         SetDateAndTime();
+        Intent intent = getIntent();
+
+        try {
+            String fileName = intent.getData().getPath();
+            Uri uri=intent.getData();
+            String str = intent.getDataString();
+
+            InputStream inStream = getContentResolver().openInputStream(uri);
+
+            Log.d("Uri",str);
+            Log.d("Path", fileName);
+        } catch (Exception e) {
+            Log.d("Exception:", e.getMessage());
+        }
+
+
+        Login();
     }
 
     public void SetDateAndTime() {
@@ -29,7 +52,6 @@ public class MainActivity extends AppCompatActivity {
         SimpleDateFormat newDate = new SimpleDateFormat("dd/MM/yyyy, EEEE");
         String myDate = newDate.format(currentTime);
         date.setText(myDate);
-        Login();
     }
 
     public void Login() {
@@ -37,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         final EditText emailText = (EditText) findViewById(R.id.edit_phone);
         final EditText passwordText = (EditText) findViewById(R.id.edit_password);
         final HelperClass myClass = new HelperClass(this);
-        final Context context=this;
+        final Context context = this;
         btnLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -46,8 +68,7 @@ public class MainActivity extends AppCompatActivity {
                 if (myClass.InternetConnection() == false) {
                     myClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                             context, "Internet Error!");
-                }
-                else {
+                } else {
                     startActivity(new Intent(MainActivity.this, OTPpopUp.class));
                 }
             }
