@@ -31,12 +31,12 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             String fileName = intent.getData().getPath();
-            Uri uri=intent.getData();
+            Uri uri = intent.getData();
             String str = intent.getDataString();
 
             InputStream inStream = getContentResolver().openInputStream(uri);
 
-            Log.d("Uri",str);
+            Log.d("Uri", str);
             Log.d("Path", fileName);
         } catch (Exception e) {
             Log.d("Exception:", e.getMessage());
@@ -54,22 +54,48 @@ public class MainActivity extends AppCompatActivity {
         date.setText(myDate);
     }
 
+    /* public void Login() {
+         Button btnLogin = (Button) findViewById(R.id.button_login);
+         final EditText emailText = (EditText) findViewById(R.id.edit_phone);
+         final EditText passwordText = (EditText) findViewById(R.id.edit_password);
+         final HelperClass myClass = new HelperClass(this);
+         final Context context = this;
+         btnLogin.setOnClickListener(new View.OnClickListener() {
+             @Override
+             public void onClick(View v) {
+                 emailText.setText("");
+                 passwordText.setText("");
+                 if (myClass.InternetConnection() == false) {
+                     myClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
+                             context, "Internet Error!");
+                 } else {
+                     startActivity(new Intent(MainActivity.this, OTPpopUp.class));
+                 }
+             }
+         });
+     }*/
     public void Login() {
-        Button btnLogin = (Button) findViewById(R.id.button_login);
-        final EditText emailText = (EditText) findViewById(R.id.edit_phone);
-        final EditText passwordText = (EditText) findViewById(R.id.edit_password);
+        Button btnLogin = (Button) findViewById(R.id.button_authorize);
+
+        final String clientSecret = "paulssecret";
+        final String clientID="urian";
+        final String redirectUri = "http://cloud-signer/";
+        final String webServiceUrl = "https://msign-test.transsped.ro/csc/v0/";
+        String url = webServiceUrl + "oauth2/authorize?response_type=token&client_id="+clientID+"&client_secret=" + clientSecret + "&redirect_uri=" + redirectUri;
+
+        final Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(Uri.parse(url));
         final HelperClass myClass = new HelperClass(this);
         final Context context = this;
+
         btnLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                emailText.setText("");
-                passwordText.setText("");
                 if (myClass.InternetConnection() == false) {
                     myClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                             context, "Internet Error!");
                 } else {
-                    startActivity(new Intent(MainActivity.this, OTPpopUp.class));
+                    startActivity(intent);
                 }
             }
         });

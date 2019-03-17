@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Cloud Signer</string>
-    <string name="login">Login</string>
+    <string name="authorize">Authorize</string>
     <string name="phoneHint">+40755226113</string>
     <string name="passwordHint">********</string>
     <string name="enter_otp_code">Enter OTP Code</string>
