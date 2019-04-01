@@ -50,6 +50,20 @@ public class HelperClass {
         }
     }
 
+    public boolean removeValue(Context context, String type) {
+        try {
+            SharedPreferences mySPrefs = PreferenceManager.getDefaultSharedPreferences(context);
+            SharedPreferences.Editor editor = mySPrefs.edit();
+            editor.remove(type);
+            editor.apply();
+            Log.d("Delete: ", "Deleted successfully!");
+            return true;
+        } catch (Exception e) {
+            Log.d("Error: ", e.getMessage());
+            return false;
+        }
+    }
+
     public String getValue(Context context, String type) {
         try {
             SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
