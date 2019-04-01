@@ -7,4 +7,6 @@
     <string name="send_otp">Send OTP</string>
     <string name="otp_code">OTP Code</string>
     <string name="mobile_remote_signer_v_1_0">Mobile Remote Signer V 1.0</string>
+    <string name="sign">Sign</string>
+    <string name="view_pdf">View PDF</string>
 </resources>
