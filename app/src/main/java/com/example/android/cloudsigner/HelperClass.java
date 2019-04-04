@@ -208,28 +208,6 @@ public class HelperClass {
         newAlert.setMessage(message);
         newAlert.setTitle(title);
         newAlert.setCancelable(true);
-
-        /*
-        newAlert.setPositiveButton(
-                "Yes",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        Toast.makeText(context,
-                                "Go to Internet Settings and set it to Enable!", Toast.LENGTH_SHORT)
-                                .show();
-                    }
-                });
-        newAlert.setNegativeButton(
-                "No",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        Toast.makeText(context,
-                                "You're not able to sign your file without internet!", Toast.LENGTH_SHORT)
-                                .show();
-                        dialog.cancel();
-                    }
-                });
-        */
         AlertDialog alert = newAlert.create();
         alert.show();
     }

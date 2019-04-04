@@ -7,53 +7,46 @@
     android:layout_height="match_parent"
     android:background="@color/colorBackground">
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="104dp"
-        android:layout_height="63dp"
-        android:text="@string/otp_code"
-        android:textAlignment="center"
-        android:textColor="#000000"
-        android:textSize="16sp"
-        app:layout_constraintBottom_toTopOf="@+id/editOtpText"
+    <Spinner
+        android:id="@+id/dynamic_spinner"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:text="Select"
+        app:layout_constraintBottom_toTopOf="@+id/btnSignDocument"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.245" />
+
+    <Button
+        android:id="@+id/btnSignDocument"
+        android:layout_width="139dp"
+        android:layout_height="61dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="56dp"
+        android:text="@string/sign_document"
+        android:textAlignment="center"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.515"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <EditText
-        android:id="@+id/editOtpText"
-        android:layout_width="245dp"
-        android:layout_height="64dp"
+    <Button
+        android:id="@+id/getCertificatesBtn"
+        android:layout_width="154dp"
+        android:layout_height="37dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
-        android:ems="10"
-        android:hint="@string/enter_otp_code"
-        android:inputType="textPersonName"
-        android:textAlignment="center"
-        android:textColor="#000000"
-        android:textColorHint="@color/colorHint"
-        android:textSize="16sp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:onClick="GetCertificates"
+        android:text="@string/get_certificates_list"
+        app:layout_constraintBottom_toTopOf="@+id/dynamic_spinner"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.496"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.563" />
+        app:layout_constraintTop_toTopOf="parent" />
 
-
-    <Button
-        android:id="@+id/btnOtpSend"
-        android:layout_width="139dp"
-        android:layout_height="61dp"
-        android:layout_marginTop="32dp"
-        android:layout_marginEnd="8dp"
-        android:text="@string/send_otp"
-        android:textAlignment="center"
-        android:textSize="16sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.515"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editOtpText" />
 </android.support.constraint.ConstraintLayout>
