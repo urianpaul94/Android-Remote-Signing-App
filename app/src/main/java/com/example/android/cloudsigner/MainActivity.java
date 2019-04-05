@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private Spinner certSpinner;
     private Button sendOtpButton;
     private Button getSadButton;
+    private EditText tanCode;
     private boolean isPdf = false;
     private ArrayList<String> credentialIds;
     private ArrayList<String> certInfo;
@@ -90,9 +91,10 @@ public class MainActivity extends AppCompatActivity {
         authorizeButton = (Button) findViewById(R.id.button_authorize);
         certificatesButton = (Button) findViewById(R.id.certificatesBtn);
         certInfoButton = (Button) findViewById(R.id.selectCertBtn);
-        certSpinner=(Spinner)findViewById(R.id.certList);
-        sendOtpButton=(Button)findViewById(R.id.sendOtpBtn);
-        getSadButton=(Button)findViewById(R.id.getSadBtn);
+        certSpinner = (Spinner) findViewById(R.id.certList);
+        sendOtpButton = (Button) findViewById(R.id.sendOtpBtn);
+        getSadButton = (Button) findViewById(R.id.getSadBtn);
+        tanCode=(EditText)findViewById(R.id.enterOtp);
         Login(authorizeButton);
     }
 
@@ -155,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
                         String tokenUri = BASE_URL + "oauth2/token";
                         Log.d("Location", "main");
 
-                        if(authToken.isEmpty()) {
+                        if (authToken.isEmpty()) {
                             GetAuthToken getAuthToken = new GetAuthToken();
                             getAuthToken.execute(tokenUri);
                         }
@@ -226,17 +228,20 @@ public class MainActivity extends AppCompatActivity {
     public void setCertInfo(View view) {
         certSpinner.setVisibility(View.VISIBLE);
         ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, certInfo);
-        Log.d("Adapter",certInfo.get(0));
+        Log.d("Adapter", certInfo.get(0));
         arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         certSpinner.setAdapter(arrayAdapter);
         sendOtpButton.setVisibility(View.VISIBLE);
     }
 
-    public void sendOTP(View view){
-        String selectedCertificate=certSpinner.getSelectedItem().toString();
-        Log.d("Selected",selectedCertificate);
-
+    public void sendOTP(View view) {
+        String selectedCertificate = certSpinner.getSelectedItem().toString();
+        Log.d("Selected", selectedCertificate);
         getSadButton.setVisibility(View.VISIBLE);
+        String url = BASE_URL + "credentials/sendOTP";
+        tanCode.setVisibility(View.VISIBLE);
+        SendOtp sendOtp = new SendOtp();
+        sendOtp.execute(url, credentialIds.get(0));
     }
 
     public void SetDateAndTime() {
@@ -268,23 +273,58 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //SendOTP class
-    private class SendOtp extends AsyncTask<String,Void,Boolean>
-    {
+    private class SendOtp extends AsyncTask<String, Void, Boolean> {
         @Override
         protected Boolean doInBackground(String... urls) {
-            Boolean response=false;
-            JSONObject jsonObject=new JSONObject();
-            try{
-                jsonObject.accumulate("","");
+            Boolean response = false;
+            JSONObject jsonObject = new JSONObject();
+            try {
+                jsonObject.accumulate("credentialID", urls[1]);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
 
+            try {
+                URL url = new URL(urls[0]);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.addRequestProperty("AUTHORIZATION", "Bearer " + authToken);
+                conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                os.writeBytes(jsonObject.toString());
+                os.flush();
+                os.close();
+
+                Log.i("STATUS_Certificates", String.valueOf(conn.getResponseCode()));
+                Log.i("MSG_Certificates", conn.getResponseMessage());
+
+                StringBuilder sb = new StringBuilder();
+                int httpsResult = conn.getResponseCode();
+                if (httpsResult == HttpsURLConnection.HTTP_OK) {
+                    response=true;
+                    BufferedReader br = new BufferedReader(new InputStreamReader(
+                            conn.getInputStream(), "utf-8"));
+                    String line = null;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    br.close();
+                }
+
+                Log.d("OTP",sb.toString());
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
             return response;
         }
-        @Override
-        protected void onPostExecute(Boolean result){
 
+        @Override
+        protected void onPostExecute(Boolean result) {
+            Log.d("Sent OTP",result.toString());
         }
 
     }

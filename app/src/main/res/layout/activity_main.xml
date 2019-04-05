@@ -135,29 +135,43 @@
         android:id="@+id/sendOtpBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="24dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:text="@string/send_otp"
         android:onClick="sendOTP"
+        android:text="@string/send_otp"
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/selectCertBtn"
-        app:layout_constraintVertical_bias="0.2" />
+        app:layout_constraintVertical_bias="0.46" />
 
     <Button
         android:id="@+id/getSadBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="28dp"
+        android:layout_marginEnd="16dp"
         android:layout_marginBottom="8dp"
-        android:visibility="invisible"
         android:text="@string/get_sad"
+        android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/certList"
-        app:layout_constraintVertical_bias="0.2" />
+        app:layout_constraintVertical_bias="0.46" />
+
+    <EditText
+        android:id="@+id/enterOtp"
+        android:layout_width="134dp"
+        android:layout_height="63dp"
+        android:layout_marginBottom="52dp"
+        android:ems="10"
+        android:hint="Enter TAN"
+        android:inputType="textPersonName"
+        android:textAlignment="center"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toTopOf="@+id/button_authorize"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </android.support.constraint.ConstraintLayout>
