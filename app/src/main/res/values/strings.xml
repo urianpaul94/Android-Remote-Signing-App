@@ -7,4 +7,10 @@
     <string name="sign_document">Sign Document</string>
     <string name="select_certificate">Select Certificate</string>
     <string name="get_certificates_list">Get Certificates List</string>
+    <string name="prepare_certificates">Prepare Certificates</string>
+    <string name="set_certificates_list">Set Certificates List</string>
+    <string name="get_sad">Get Sad</string>
+    <string name="send_otp">Send OTP</string>
+    <string name="get_certificates">Get Certificates</string>
+    <string name="load_info">Load info</string>
 </resources>
