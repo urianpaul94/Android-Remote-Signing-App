@@ -1,52 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/colorBackground">
 
-    <Spinner
-        android:id="@+id/dynamic_spinner"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="Select"
-        app:layout_constraintBottom_toTopOf="@+id/btnSignDocument"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.245" />
-
-    <Button
-        android:id="@+id/btnSignDocument"
-        android:layout_width="139dp"
-        android:layout_height="61dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="56dp"
-        android:text="@string/sign_document"
-        android:textAlignment="center"
-        android:textSize="16sp"
+    <com.github.barteksc.pdfviewer.PDFView
+        android:id="@+id/pdfView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.515"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <Button
-        android:id="@+id/getCertificatesBtn"
-        android:layout_width="154dp"
-        android:layout_height="37dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:onClick="GetCertificates"
-        android:text="@string/get_certificates_list"
-        app:layout_constraintBottom_toTopOf="@+id/dynamic_spinner"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"></com.github.barteksc.pdfviewer.PDFView>
 
 </android.support.constraint.ConstraintLayout>

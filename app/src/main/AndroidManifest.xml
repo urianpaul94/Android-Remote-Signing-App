@@ -33,7 +33,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
             </intent-filter>
         </activity>
-        <activity android:name=".OTPpopUp"
+        <activity android:name=".ViewPDFActivity"
             android:theme="@style/AppTheme.CustomTheme">
         </activity>
     </application>

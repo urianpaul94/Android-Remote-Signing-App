@@ -18,18 +18,17 @@
         android:textAlignment="center"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.518"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.814" />
+        app:layout_constraintVertical_bias="0.908" />
 
     <TextView
         android:id="@+id/text_datetime"
         android:layout_width="311dp"
-        android:layout_height="51dp"
+        android:layout_height="39dp"
         android:layout_marginStart="8dp"
-        android:layout_marginLeft="8dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginRight="8dp"
         android:layout_marginBottom="8dp"
         android:text="TextView"
         android:textAlignment="center"
@@ -55,32 +54,34 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
-        android:id="@+id/button_sign"
+        android:id="@+id/button_loadInfo"
         android:layout_width="176dp"
         android:layout_height="72dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginBottom="320dp"
+        android:layout_marginBottom="436dp"
         android:onClick="getCredentialIds"
         android:text="@string/get_certificates"
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintHorizontal_bias="0.506"
         app:layout_constraintStart_toStartOf="parent" />
 
     <Button
         android:id="@+id/button_view"
-        android:layout_width="128dp"
-        android:layout_height="45dp"
+        android:layout_width="112dp"
+        android:layout_height="37dp"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginBottom="88dp"
         android:text="@string/view_pdf"
+        android:onClick="viewPdf"
         android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button_authorize"
-        app:layout_constraintVertical_bias="0.086" />
+        app:layout_constraintTop_toBottomOf="@+id/getSadBtn"
+        app:layout_constraintVertical_bias="0.761" />
 
     <Button
         android:id="@+id/certificatesBtn"
@@ -94,10 +95,10 @@
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintHorizontal_bias="0.506"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/button_sign"
-        app:layout_constraintVertical_bias="0.269" />
+        app:layout_constraintTop_toTopOf="@+id/button_loadInfo"
+        app:layout_constraintVertical_bias="0.214" />
 
     <Button
         android:id="@+id/selectCertBtn"
@@ -135,7 +136,7 @@
         android:id="@+id/sendOtpBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
+        android:layout_marginStart="28dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:onClick="sendOTP"
@@ -144,7 +145,7 @@
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/selectCertBtn"
-        app:layout_constraintVertical_bias="0.46" />
+        app:layout_constraintVertical_bias="0.264" />
 
     <Button
         android:id="@+id/getSadBtn"
@@ -154,24 +155,56 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="8dp"
         android:text="@string/get_sad"
+        android:onClick="GetSad"
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/certList"
-        app:layout_constraintVertical_bias="0.46" />
+        app:layout_constraintVertical_bias="0.259" />
 
     <EditText
         android:id="@+id/enterOtp"
-        android:layout_width="134dp"
-        android:layout_height="63dp"
-        android:layout_marginBottom="52dp"
+        android:layout_width="124dp"
+        android:layout_height="51dp"
+        android:layout_marginBottom="184dp"
         android:ems="10"
         android:hint="Enter TAN"
         android:inputType="textPersonName"
         android:textAlignment="center"
+        android:textSize="14sp"
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.526"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <EditText
+        android:id="@+id/signPasswd"
+        android:layout_width="124dp"
+        android:layout_height="51dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:ems="10"
+        android:hint="@string/sign_password"
+        android:inputType="textPassword"
+        android:textAlignment="center"
+        android:textSize="14sp"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toTopOf="@+id/button_authorize"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.526"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/enterOtp"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <Button
+        android:id="@+id/signButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="SignDocument"
+        android:text="@string/sign"
+        android:visibility="invisible"
+        tools:layout_editor_absoluteX="170dp"
+        tools:layout_editor_absoluteY="527dp" />
 
 </android.support.constraint.ConstraintLayout>

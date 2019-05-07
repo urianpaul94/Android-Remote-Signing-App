@@ -6,14 +6,9 @@ import android.icu.text.SimpleDateFormat;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
-import android.provider.Settings;
-import android.support.v4.graphics.PathUtils;
-import android.support.v4.provider.DocumentFile;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Base64;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -21,23 +16,29 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URI;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 import java.util.StringTokenizer;
+import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.HttpsURLConnection;
+
+import SecureBlackbox.Base.SBUtils;
+import SecureBlackbox.PDF.TElPDFDocument;
+import SecureBlackbox.PDF.TElPDFSignature;
+import SecureBlackbox.PKIPDF.TElPDFAdvancedPublicKeySecurityHandler;
 
 public class MainActivity extends AppCompatActivity {
     public static final String FILE_PATH = "Path";
@@ -48,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private final String clientSecret = "paulssecret";
     private final String clientID = "urian";
     private final String redirectUri = "http://cloud-signer/";
-    private Button signButton;
+    private Button loadInfoButton;
     private Button viewButton;
     private Button authorizeButton;
     private Button certificatesButton;
@@ -56,12 +57,16 @@ public class MainActivity extends AppCompatActivity {
     private Spinner certSpinner;
     private Button sendOtpButton;
     private Button getSadButton;
+    private Button signButton;
     private EditText tanCode;
+    private EditText signPasswd;
     private boolean isPdf = false;
     private ArrayList<String> credentialIds;
     private ArrayList<String> certInfo;
     private int certNumber = 0;
-
+    private int selectedCertificateIndex = 0;
+    private TElPDFAdvancedPublicKeySecurityHandler tElPDFAdvancedPublicKeySecurityHandler = null;
+    private TElPDFDocument m_CurrDoc = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
             isPdf = false;
             Log.d("Error", e.getMessage());
         }
-        signButton = (Button) findViewById(R.id.button_sign);
+        loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
         authorizeButton = (Button) findViewById(R.id.button_authorize);
         certificatesButton = (Button) findViewById(R.id.certificatesBtn);
@@ -94,10 +99,14 @@ public class MainActivity extends AppCompatActivity {
         certSpinner = (Spinner) findViewById(R.id.certList);
         sendOtpButton = (Button) findViewById(R.id.sendOtpBtn);
         getSadButton = (Button) findViewById(R.id.getSadBtn);
-        tanCode=(EditText)findViewById(R.id.enterOtp);
+        tanCode = (EditText) findViewById(R.id.enterOtp);
+        signPasswd = (EditText) findViewById(R.id.signPasswd);
+        signButton = (Button) findViewById(R.id.signButton);
+        //1. Obtain auth_code.
         Login(authorizeButton);
     }
 
+    //1. Save pdf path to shared preferences.
     @Override
     protected void onStop() {
         super.onStop();
@@ -119,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //2. If auth_code, obtain auth_token.
     @Override
     protected void onStart() {
         super.onStart();
@@ -126,10 +136,11 @@ public class MainActivity extends AppCompatActivity {
         String scheme = intent.getScheme();
         try {
             if (scheme.equals("content") || isPdf) {
-                viewButton.setVisibility(View.VISIBLE);
+                //viewButton.setVisibility(View.VISIBLE);
             }
             if (scheme.equals("http")) {
-                signButton.setVisibility(View.VISIBLE);
+                loadInfoButton.setVisibility(View.VISIBLE);
+                viewButton.setVisibility(View.VISIBLE);
             }
         } catch (Exception e) {
             Log.d("Error:", e.getMessage());
@@ -168,10 +179,8 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.d("Error: ", e.getMessage());
         }
-
-
         if (!authCode.equals("")) {
-            signButton.setVisibility(View.VISIBLE);
+            loadInfoButton.setVisibility(View.VISIBLE);
         }
     }
 
@@ -189,10 +198,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //3. If auth_token, obtain Credentials IDS.
     public void getCredentialIds(View view) {
         Context context = this;
         HelperClass helperClass = new HelperClass(this);
-        Intent intent = new Intent(this, OTPpopUp.class);
+        Intent intent = new Intent(this, ViewPDFActivity.class);
         if (helperClass.InternetConnection() == false) {
             helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                     context, "Internet Error!");
@@ -209,19 +219,19 @@ public class MainActivity extends AppCompatActivity {
                     getCredentialIds.execute(url);
                 }
             }
-            //startActivity(intent);
         }
     }
 
     public void getInfo(View view) {
-        //TODO: aici o sa trebuiasca sa apelez functia de getInfo pentru fiecare ID din lista de credentialIds.
+        certInfo = new ArrayList<String>();
         if (credentialIds.size() > 0) {
-            Log.d("InFunction", credentialIds.get(0));
-            GetCertificates getCertificates = new GetCertificates();
-            String url = BASE_URL + "credentials/info";
-            certInfo = new ArrayList<String>();
-            certInfoButton.setVisibility(View.VISIBLE);
-            getCertificates.execute(url, credentialIds.get(0));
+            for (int i = 0; i < credentialIds.size(); i++) {
+                Log.d("InFunction", credentialIds.get(i));
+                GetCertificates getCertificates = new GetCertificates();
+                String url = BASE_URL + "credentials/info";
+                certInfoButton.setVisibility(View.VISIBLE);
+                getCertificates.execute(url, credentialIds.get(i));
+            }
         }
     }
 
@@ -234,15 +244,6 @@ public class MainActivity extends AppCompatActivity {
         sendOtpButton.setVisibility(View.VISIBLE);
     }
 
-    public void sendOTP(View view) {
-        String selectedCertificate = certSpinner.getSelectedItem().toString();
-        Log.d("Selected", selectedCertificate);
-        getSadButton.setVisibility(View.VISIBLE);
-        String url = BASE_URL + "credentials/sendOTP";
-        tanCode.setVisibility(View.VISIBLE);
-        SendOtp sendOtp = new SendOtp();
-        sendOtp.execute(url, credentialIds.get(0));
-    }
 
     public void SetDateAndTime() {
         Date currentTime = Calendar.getInstance().getTime();
@@ -250,6 +251,11 @@ public class MainActivity extends AppCompatActivity {
         SimpleDateFormat newDate = new SimpleDateFormat("dd/MM/yyyy, EEEE");
         String myDate = newDate.format(currentTime);
         date.setText(myDate);
+    }
+
+    public void viewPdf(View view) {
+        Intent intent = new Intent(MainActivity.this, ViewPDFActivity.class);
+        startActivity(intent);
     }
 
     public void Login(Button btn) {
@@ -270,6 +276,306 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    public void sendOTP(View view) {
+        String selectedCertificate = certSpinner.getSelectedItem().toString();
+        int index = (int) certSpinner.getSelectedItemId();
+        selectedCertificateIndex = index;
+        Log.d("Selected", selectedCertificate);
+        Log.d("SelectedID", Long.toString(index));
+        getSadButton.setVisibility(View.VISIBLE);
+        String url = BASE_URL + "credentials/sendOTP";
+        tanCode.setVisibility(View.VISIBLE);
+        signPasswd.setVisibility(View.VISIBLE);
+        SendOtp sendOtp = new SendOtp();
+        Log.d("OTP-credentialID", credentialIds.get(selectedCertificateIndex));
+        sendOtp.execute(url, credentialIds.get(selectedCertificateIndex));
+    }
+
+    public String GetSadResponse(String hash, String otpCode, String signPassword) {
+        String sadValue = "";
+        String response = "";
+        String url = BASE_URL + "credentials/authorize";
+        SadClass sadClass = new SadClass();
+        try {
+            response = sadClass.execute(url, credentialIds.get(selectedCertificateIndex), hash, signPassword, otpCode).get();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        if (!response.isEmpty()) {
+            StringTokenizer stringTokenizer = new StringTokenizer(response, "\":,");
+            while (stringTokenizer.hasMoreTokens()) {
+                String token = stringTokenizer.nextToken();
+                if (token.equals("SAD")) {
+                    sadValue = stringTokenizer.nextToken();
+                }
+            }
+        }
+        return sadValue;
+    }
+
+    public String GetSignature(String hash, String sadResponse) {
+        String response = "";
+        String url = BASE_URL + "signatures/signHash";
+        SignClass signClass = new SignClass();
+        try {
+            response = signClass.execute(url, credentialIds.get(selectedCertificateIndex), hash, sadResponse).get();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        String signatureString = "";
+        if (!response.isEmpty()) {
+            Log.d("Response from server", response);
+            StringTokenizer stringTokenizer = new StringTokenizer(response, ":\"{}[]");
+            String line = "";
+            while (stringTokenizer.hasMoreTokens()) {
+                line = stringTokenizer.nextToken();
+                if (line.equals("signatures")) {
+                    signatureString = stringTokenizer.nextToken();
+                }
+            }
+        }
+        if (signatureString.isEmpty()) {
+            Log.d("Signature", signatureString);
+        }
+        return signatureString;
+    }
+
+    public void GetSad(View view) {
+        /*String otpCode = tanCode.getText().toString();
+        String signPassword = signPasswd.getText().toString();
+        Log.d("Tan Code", otpCode);
+        Log.d("Sign Password", signPassword);
+        SadClass sadClass = new SadClass();
+        String response = "";
+        String hash = "";
+        String url = BASE_URL + "credentials/authorize";
+        try {
+            byte[] bytes = ("text to hash").getBytes("UTF-8");
+            MessageDigest mHash = MessageDigest.getInstance("SHA-256");
+            byte[] encodedHash = mHash.digest(bytes);
+            hash = Base64.encodeToString(encodedHash, Base64.NO_WRAP);
+            Log.d("hash", hash);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        String hashTest = "E3z8VQoHVdzWBfdlxmLEnPVIgYE9ZZkM+XWz6QNK+Ls=";
+        Log.d("SAD-credentialID", credentialIds.get(selectedCertificateIndex));
+        String sadValue = "";
+        try {
+            sadValue = GetSadResponse(hashTest, otpCode, signPassword);
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+
+        Log.d("SAD-value", sadValue);*/
+        signButton.setVisibility(View.VISIBLE);
+/*        tanCode.setText("");
+        signPasswd.setText("");*/
+    }
+
+
+    void onRemoteSignHandler(Object sender, byte[] Hash, byte[] SignedHash) {
+        String otpCode = "";
+        String signPassword = "";
+        String sadValue = "";
+        //byte[] to base64
+        String docHash = "";
+        //base64 to byte[]
+        String respHash = "";
+
+        if (!tanCode.getText().toString().isEmpty()) {
+            otpCode = tanCode.getText().toString();
+        }
+        if (!signPasswd.getText().toString().isEmpty()) {
+            signPassword = signPasswd.getText().toString();
+        }
+        if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
+            //get sad for hash
+            sadValue = GetSadResponse(docHash, otpCode, signPassword);
+        }
+
+
+        //sign hash
+    }
+
+    public void SignDocument(View view) {
+        TElPDFSignature tElPDFSignature;
+        SBUtils.setLicenseKey("914800F8C906204E26B3879514D6A459D6C317817E6D68EFB2B70B6A38221B534442125967" +
+                "4E353F6B3BA7F405A895CE1B9F1B6A27F119474E37F2CAA0F325DD9C1C2E9B7D064AA997C23B7A092CA12CB14" +
+                "EC8E82D221A87566A13A50E4C51BDFDE66AD289A1F910E456E969FBA03674EE44E1822379C01FF2861A652FF58" +
+                "7940634F6365C818A123775BAA414C3BBFF6940655E7D3F5C30551F850AACCF88AACCB481A51A792A10BCED386F" +
+                "F7CF422F50DDED61B1285139B9DC34719BF4F5F81ACF2DE0649923898CE2DAAE313C385A2A7B6388EE2A73CEC17" +
+                "30C5021FEB2C65EF65D3BB10FE1B92FE4912E333647324E5DC68344AA26BDCF4A65EB365F461E");
+        String filePath = "";
+        HelperClass helperClass = new HelperClass(this);
+        filePath = helperClass.getValue(this, FILE_PATH);
+        Log.d("Sign_FilePath", filePath);
+
+        //test
+        String otpCode = "";
+        String signPassword = "";
+        String sadValue = "";
+        //byte[] to base64
+        String docHash = "E3z8VQoHVdzWBfdlxmLEnPVIgYE9ZZkM+XWz6QNK+Ls=";
+        //base64 to byte[]
+        String respHash = "";
+
+        if (!tanCode.getText().toString().isEmpty()) {
+            otpCode = tanCode.getText().toString();
+        }
+        if (!signPasswd.getText().toString().isEmpty()) {
+            signPassword = signPasswd.getText().toString();
+        }
+        if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
+            //get sad for hash
+            sadValue = GetSadResponse(docHash, otpCode, signPassword);
+        }
+        if (!sadValue.isEmpty()) {
+            try {
+                respHash = GetSignature(docHash, sadValue);
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+        }
+
+    }
+
+
+    private class SignClass extends AsyncTask<String, Void, String> {
+        @Override
+        protected String doInBackground(String... urls) {
+            String response = "";
+            JSONObject jsonObject = new JSONObject();
+            JSONArray hashesArray = new JSONArray();
+            try {
+                hashesArray.put(urls[2]);
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            try {
+                jsonObject.accumulate("credentialID", urls[1]);
+                jsonObject.accumulate("signAlgo", "1.2.840.113549.1.1.11");
+                jsonObject.accumulate("hashAlgo", "2.16.840.1.101.3.4.2.1");
+                jsonObject.accumulate("signAlgoParams", "");
+                jsonObject.accumulate("SAD", urls[3]);
+                jsonObject.accumulate("hash", hashesArray);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                URL url = new URL(urls[0]);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.addRequestProperty("AUTHORIZATION", "Bearer " + authToken);
+                conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                os.writeBytes(jsonObject.toString());
+                os.flush();
+                os.close();
+
+                Log.i("Conn_status_Sign", String.valueOf(conn.getResponseCode()));
+                Log.i("Conn_message_Sign", conn.getResponseMessage());
+
+                StringBuilder sb = new StringBuilder();
+                int httpsResult = conn.getResponseCode();
+                if (httpsResult == HttpsURLConnection.HTTP_OK) {
+                    BufferedReader br = new BufferedReader(new InputStreamReader(
+                            conn.getInputStream(), "utf-8"));
+                    String line = null;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    br.close();
+                }
+                Log.d("SAD", sb.toString());
+                response = sb.toString();
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            return response;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+
+        }
+    }
+
+    private class SadClass extends AsyncTask<String, Void, String> {
+        @Override
+        protected String doInBackground(String... urls) {
+
+            String response = "";
+            JSONObject jsonObject = new JSONObject();
+            JSONArray jsonArray = new JSONArray();
+            try {
+                jsonArray.put(urls[2]);
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            try {
+                jsonObject.accumulate("credentialID", urls[1]);
+                jsonObject.accumulate("numSignatures", "1");
+                jsonObject.put("hash", jsonArray);
+                jsonObject.accumulate("PIN", urls[3]);
+                jsonObject.accumulate("OTP", urls[4]);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                URL url = new URL(urls[0]);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.addRequestProperty("AUTHORIZATION", "Bearer " + authToken);
+                conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                os.writeBytes(jsonObject.toString());
+                os.flush();
+                os.close();
+
+                Log.i("Conn_status_SAD", String.valueOf(conn.getResponseCode()));
+                Log.i("Conn_message_SAD", conn.getResponseMessage());
+
+                StringBuilder sb = new StringBuilder();
+                int httpsResult = conn.getResponseCode();
+                if (httpsResult == HttpsURLConnection.HTTP_OK) {
+                    BufferedReader br = new BufferedReader(new InputStreamReader(
+                            conn.getInputStream(), "utf-8"));
+                    String line = null;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    br.close();
+                }
+                Log.d("SAD", sb.toString());
+                response = sb.toString();
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            return response;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            Log.d("Result-PostExe", result);
+
+        }
     }
 
     //SendOTP class
@@ -305,7 +611,7 @@ public class MainActivity extends AppCompatActivity {
                 StringBuilder sb = new StringBuilder();
                 int httpsResult = conn.getResponseCode();
                 if (httpsResult == HttpsURLConnection.HTTP_OK) {
-                    response=true;
+                    response = true;
                     BufferedReader br = new BufferedReader(new InputStreamReader(
                             conn.getInputStream(), "utf-8"));
                     String line = null;
@@ -315,7 +621,7 @@ public class MainActivity extends AppCompatActivity {
                     br.close();
                 }
 
-                Log.d("OTP",sb.toString());
+                Log.d("OTP", sb.toString());
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
@@ -324,7 +630,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(Boolean result) {
-            Log.d("Sent OTP",result.toString());
+            Log.d("Sent OTP", result.toString());
         }
 
     }
@@ -405,7 +711,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("Alias", alias + " " + keyStatus + " " + certStatus);
             if (keyStatus.equals("enabled") && certStatus.equals("valid")) {
                 certInfo.add(alias);
-                Log.d("certInfo[certNumber]", certInfo.get(0));
+                Log.d("certInfo[certNumber]", certInfo.get(certInfo.size() - 1));
                 Log.d("cert number", Integer.toString(certInfo.size()));
             }
         }
@@ -535,19 +841,23 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             Log.d("Location", "GetCredentialIds");
             Log.d("Result_auth", result);
-            //TODO: get result as String[] - pentru mai multe certificate...si salvare credentiale intr-un dictionar - nr_crt + value;
             try {
                 StringTokenizer stringTokenizer = new StringTokenizer(result, ":{}[],\"");
-                String first = stringTokenizer.nextToken();
-                String second = stringTokenizer.nextToken();
-                String third = stringTokenizer.nextToken();
-                String fourth = stringTokenizer.nextToken();
-                Log.d("Result_first", first);
-                Log.d("Result_second", second);
-                Log.d("Result_third", third);
-                Log.d("Result_fourth", fourth);
-                //credentialIds = new String(fourth);
-                credentialIds.add(fourth);
+                String token = "";
+                while (stringTokenizer.hasMoreTokens()) {
+                    token = stringTokenizer.nextToken();
+                    if (token.equals("credentialIDs")) {
+                        while (stringTokenizer.hasMoreTokens()) {
+                            String certToken = stringTokenizer.nextToken();
+                            if (!certToken.equals("\n")) {
+                                credentialIds.add(certToken);
+                            }
+                        }
+                    } else {
+                        stringTokenizer.nextToken();
+                    }
+                }
+
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
