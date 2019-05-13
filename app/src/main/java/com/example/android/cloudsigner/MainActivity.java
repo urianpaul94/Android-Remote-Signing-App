@@ -10,6 +10,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -94,11 +95,11 @@ public class MainActivity extends AppCompatActivity {
         loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
         authorizeButton = (Button) findViewById(R.id.button_authorize);
-        certificatesButton = (Button) findViewById(R.id.certificatesBtn);
-        certInfoButton = (Button) findViewById(R.id.selectCertBtn);
+        //certificatesButton = (Button) findViewById(R.id.certificatesBtn);
+        //certInfoButton = (Button) findViewById(R.id.selectCertBtn);
         certSpinner = (Spinner) findViewById(R.id.certList);
-        sendOtpButton = (Button) findViewById(R.id.sendOtpBtn);
-        getSadButton = (Button) findViewById(R.id.getSadBtn);
+        //sendOtpButton = (Button) findViewById(R.id.sendOtpBtn);
+        //getSadButton = (Button) findViewById(R.id.getSadBtn);
         tanCode = (EditText) findViewById(R.id.enterOtp);
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);
@@ -141,6 +142,7 @@ public class MainActivity extends AppCompatActivity {
             if (scheme.equals("http")) {
                 loadInfoButton.setVisibility(View.VISIBLE);
                 viewButton.setVisibility(View.VISIBLE);
+                authorizeButton.setVisibility(View.INVISIBLE);
             }
         } catch (Exception e) {
             Log.d("Error:", e.getMessage());
@@ -199,6 +201,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //3. If auth_token, obtain Credentials IDS.
+    //deprecated.
     public void getCredentialIds(View view) {
         Context context = this;
         HelperClass helperClass = new HelperClass(this);
@@ -222,6 +225,83 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public ArrayList<String> GetCredentialIDS() {
+        ArrayList<String> credIds = new ArrayList<String>();
+        String response = "";
+        String url = BASE_URL + "credentials/list";
+        try {
+            GetCredentialIds getCredentialIds = new GetCredentialIds();
+            response = getCredentialIds.execute(url).get();
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+        try {
+            StringTokenizer stringTokenizer = new StringTokenizer(response, ":{}[],\"");
+            String token = "";
+            while (stringTokenizer.hasMoreTokens()) {
+                token = stringTokenizer.nextToken();
+                if (token.equals("credentialIDs")) {
+                    while (stringTokenizer.hasMoreTokens()) {
+                        String certToken = stringTokenizer.nextToken();
+                        if (!certToken.equals("\n")) {
+                            credIds.add(certToken);
+                        }
+                    }
+                } else {
+                    stringTokenizer.nextToken();
+                }
+            }
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+
+        return credIds;
+    }
+
+    public ArrayList<String> getCertificatesInformation(ArrayList<String> credentialIdList) {
+        ArrayList<String> certArrayList = new ArrayList<>();
+        String response = "";
+        String url = BASE_URL + "credentials/info";
+        for (int i = 0; i < credentialIdList.size(); i++) {
+            try {
+                GetCertificates getCertificates = new GetCertificates();
+                response = getCertificates.execute(url, credentialIdList.get(i)).get();
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            StringTokenizer stringTokenizer = new StringTokenizer(response, ",:{}\"");
+            int tokens = stringTokenizer.countTokens();
+            String token = "";
+            String alias = "";
+            String keyStatus = "";
+            String certStatus = "";
+            while (stringTokenizer.hasMoreTokens()) {
+                token = stringTokenizer.nextToken();
+                if (token.equals("Card alias")) {
+                    alias = stringTokenizer.nextToken();
+                } else if (token.equals("key")) {
+                    stringTokenizer.nextToken();
+                    keyStatus = stringTokenizer.nextToken();
+                } else if (token.equals("cert")) {
+                    stringTokenizer.nextToken();
+                    certStatus = stringTokenizer.nextToken();
+                }
+            }
+            Log.d("Alias", alias + " " + keyStatus + " " + certStatus);
+            if (keyStatus.equals("enabled") && certStatus.equals("valid")) {
+                String crtAlias = "Cert-Alias:";
+                String crtNo = certArrayList.size() + 1 + ". " + crtAlias;
+                certArrayList.add(crtNo+ alias);
+                Log.d("certInfo[certNumber]", certArrayList.get(certArrayList.size() - 1));
+                Log.d("cert number", Integer.toString(certArrayList.size()));
+            }
+
+        }
+
+        return certArrayList;
+    }
+
+    //deprecated.
     public void getInfo(View view) {
         certInfo = new ArrayList<String>();
         if (credentialIds.size() > 0) {
@@ -235,6 +315,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void setCertInfo(ArrayList<String> certificatesInfo, final ArrayList<String> credIds) {
+        certSpinner.setVisibility(View.VISIBLE);
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, certificatesInfo);
+        Log.d("Adapter", certificatesInfo.get(0));
+        arrayAdapter.setDropDownViewResource(R.layout.spinner_drop_down_items);
+        certSpinner.setAdapter(arrayAdapter);
+        final String url = BASE_URL + "credentials/sendOTP";
+        //sendOtpButton.setVisibility(View.VISIBLE);
+        certSpinner.setPrompt("Select your certificate!");
+        certSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                Log.d("Spinner", "Selected");
+                //String selected=certSpinner.getSelectedItem().toString();
+                int index = (int) certSpinner.getSelectedItemId();
+                selectedCertificateIndex = index;
+                SendOtp sendOtp = new SendOtp();
+                sendOtp.execute(url, credIds.get(selectedCertificateIndex));
+                signButton.setVisibility(View.VISIBLE);
+            }
+
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                return;
+            }
+        });
+    }
+
+    //deprecated.
     public void setCertInfo(View view) {
         certSpinner.setVisibility(View.VISIBLE);
         ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, certInfo);
@@ -243,7 +350,6 @@ public class MainActivity extends AppCompatActivity {
         certSpinner.setAdapter(arrayAdapter);
         sendOtpButton.setVisibility(View.VISIBLE);
     }
-
 
     public void SetDateAndTime() {
         Date currentTime = Calendar.getInstance().getTime();
@@ -278,6 +384,42 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    public void GetCertificatesList(View view) {
+        ArrayList<String> credIds = new ArrayList<>();
+        ArrayList<String> certificatesInfo = new ArrayList<>();
+        Context context = this;
+        HelperClass helperClass = new HelperClass(this);
+        Intent intent = new Intent(this, ViewPDFActivity.class);
+        if (helperClass.InternetConnection() == false) {
+            helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
+                    context, "Internet Error!");
+        } else {
+            try {
+                credIds = GetCredentialIDS();
+                credentialIds = credIds;
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            if (credIds.size() > 0) {
+                try {
+                    certificatesInfo = getCertificatesInformation(credIds);
+                } catch (Exception e) {
+                    Log.d("Error", e.getMessage());
+                }
+                if (certificatesInfo.size() > 0) {
+                    try {
+                        setCertInfo(certificatesInfo, credIds);
+                        tanCode.setVisibility(View.VISIBLE);
+                        signPasswd.setVisibility(View.VISIBLE);
+                    } catch (Exception e) {
+                        Log.d("Error", e.getMessage());
+                    }
+                }
+            }
+        }
+    }
+
+    //deprecated.
     public void sendOTP(View view) {
         String selectedCertificate = certSpinner.getSelectedItem().toString();
         int index = (int) certSpinner.getSelectedItemId();
@@ -376,7 +518,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Log.d("SAD-value", sadValue);*/
-        signButton.setVisibility(View.VISIBLE);
+        //signButton.setVisibility(View.VISIBLE);
 /*        tanCode.setText("");
         signPasswd.setText("");*/
     }
@@ -709,11 +851,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             Log.d("Alias", alias + " " + keyStatus + " " + certStatus);
-            if (keyStatus.equals("enabled") && certStatus.equals("valid")) {
+           /* if (keyStatus.equals("enabled") && certStatus.equals("valid")) {
                 certInfo.add(alias);
                 Log.d("certInfo[certNumber]", certInfo.get(certInfo.size() - 1));
                 Log.d("cert number", Integer.toString(certInfo.size()));
-            }
+            }*/
         }
     }
 
