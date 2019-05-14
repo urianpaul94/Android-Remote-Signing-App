@@ -4,5 +4,6 @@
     android:layout_width="match_parent"
     android:layout_height="50dp"
     android:textSize="18dp"
+    android:drawableEnd="@drawable/selected"
     android:textAlignment="center"
     android:textColor="#FFFFFF" />

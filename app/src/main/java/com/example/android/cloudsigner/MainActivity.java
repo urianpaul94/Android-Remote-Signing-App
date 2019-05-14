@@ -291,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
             if (keyStatus.equals("enabled") && certStatus.equals("valid")) {
                 String crtAlias = "Cert-Alias:";
                 String crtNo = certArrayList.size() + 1 + ". " + crtAlias;
-                certArrayList.add(crtNo+ alias);
+                certArrayList.add(crtNo + alias);
                 Log.d("certInfo[certNumber]", certArrayList.get(certArrayList.size() - 1));
                 Log.d("cert number", Integer.toString(certArrayList.size()));
             }
@@ -339,16 +339,6 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
         });
-    }
-
-    //deprecated.
-    public void setCertInfo(View view) {
-        certSpinner.setVisibility(View.VISIBLE);
-        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, certInfo);
-        Log.d("Adapter", certInfo.get(0));
-        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        certSpinner.setAdapter(arrayAdapter);
-        sendOtpButton.setVisibility(View.VISIBLE);
     }
 
     public void SetDateAndTime() {
@@ -543,6 +533,14 @@ public class MainActivity extends AppCompatActivity {
             //get sad for hash
             sadValue = GetSadResponse(docHash, otpCode, signPassword);
         }
+        if(!sadValue.isEmpty()){
+            try{
+
+            }
+            catch (Exception e){
+                Log.d("Error",e.getMessage());
+            }
+        }
 
 
         //sign hash
@@ -591,6 +589,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    //Sign class - call signing service -- signs hash.
     private class SignClass extends AsyncTask<String, Void, String> {
         @Override
         protected String doInBackground(String... urls) {
@@ -655,6 +654,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //GetSad value class
     private class SadClass extends AsyncTask<String, Void, String> {
         @Override
         protected String doInBackground(String... urls) {
@@ -1004,5 +1004,19 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Error", e.getMessage());
             }
         }
+    }
+
+
+
+
+    //deprecated functions -- functii care sunt folosite doar pentru testarea anumitor functionalitati.
+    //deprecated.
+    public void setCertInfo(View view) {
+        certSpinner.setVisibility(View.VISIBLE);
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, certInfo);
+        Log.d("Adapter", certInfo.get(0));
+        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        certSpinner.setAdapter(arrayAdapter);
+        sendOtpButton.setVisibility(View.VISIBLE);
     }
 }

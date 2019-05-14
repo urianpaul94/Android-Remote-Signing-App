@@ -6,6 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="?android:attr/listPreferredItemHeight"
     android:ellipsize="marquee"
-    android:background="@drawable/gradient_color"
+    android:drawableStart="@drawable/certif"
+    android:drawableEnd="@drawable/selected_crt"
     android:textSize="18dp"
-    android:textColor="#FFFFFF"/>
+    android:textColor="#000000"/>
