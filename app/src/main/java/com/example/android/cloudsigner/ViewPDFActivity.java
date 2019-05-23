@@ -7,10 +7,6 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-
 import com.github.barteksc.pdfviewer.PDFView;
 
 import java.io.File;

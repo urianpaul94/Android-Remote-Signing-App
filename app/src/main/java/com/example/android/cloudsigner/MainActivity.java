@@ -6,6 +6,7 @@ import android.icu.text.SimpleDateFormat;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
 import android.util.Log;
@@ -14,6 +15,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -23,7 +25,10 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.security.MessageDigest;
@@ -36,10 +41,11 @@ import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import SecureBlackbox.Base.SBUtils;
-import SecureBlackbox.PDF.TElPDFDocument;
-import SecureBlackbox.PDF.TElPDFSignature;
-import SecureBlackbox.PKIPDF.TElPDFAdvancedPublicKeySecurityHandler;
+import SecureBlackbox.Base.*;
+import SecureBlackbox.HTTPClient.*;
+import SecureBlackbox.PDF.*;
+import SecureBlackbox.PKIPDF.*;
+import SecureBlackbox.LDAP.*;
 
 public class MainActivity extends AppCompatActivity {
     public static final String FILE_PATH = "Path";
@@ -53,21 +59,31 @@ public class MainActivity extends AppCompatActivity {
     private Button loadInfoButton;
     private Button viewButton;
     private Button authorizeButton;
-    private Button certificatesButton;
-    private Button certInfoButton;
     private Spinner certSpinner;
-    private Button sendOtpButton;
-    private Button getSadButton;
     private Button signButton;
     private EditText tanCode;
     private EditText signPasswd;
+    private ProgressBar progressBar;
     private boolean isPdf = false;
     private ArrayList<String> credentialIds;
     private ArrayList<String> certInfo;
-    private int certNumber = 0;
     private int selectedCertificateIndex = 0;
-    private TElPDFAdvancedPublicKeySecurityHandler tElPDFAdvancedPublicKeySecurityHandler = null;
+
+    //signature_
     private TElPDFDocument m_CurrDoc = null;
+    private String m_CurrOrigFile = "";
+    private String m_CurrTempFile = "";
+    private TElFileStream m_CurrStream = null;
+
+    TElPDFPublicKeyRevocationInfo m_DocRevInfo = new TElPDFPublicKeyRevocationInfo();
+    TElPDFPublicKeyRevocationInfo m_LocalRevInfo = new TElPDFPublicKeyRevocationInfo();
+    TElMemoryCertStorage m_TrustedCerts = new TElMemoryCertStorage();
+    TElMemoryCRLStorage m_KnownCRLs = new TElMemoryCRLStorage();
+    TElPDFAdvancedPublicKeySecurityHandler m_Handler = null;
+    TElMemoryCertStorage m_CertStorage = new TElMemoryCertStorage();
+    TElHTTPTSPClient m_TspClient = new TElHTTPTSPClient();
+    TElHTTPSClient m_HttpClient = new TElHTTPSClient();
+    TElStringList m_CertValidationLog = new TElStringList();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,14 +111,11 @@ public class MainActivity extends AppCompatActivity {
         loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
         authorizeButton = (Button) findViewById(R.id.button_authorize);
-        //certificatesButton = (Button) findViewById(R.id.certificatesBtn);
-        //certInfoButton = (Button) findViewById(R.id.selectCertBtn);
         certSpinner = (Spinner) findViewById(R.id.certList);
-        //sendOtpButton = (Button) findViewById(R.id.sendOtpBtn);
-        //getSadButton = (Button) findViewById(R.id.getSadBtn);
         tanCode = (EditText) findViewById(R.id.enterOtp);
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);
+        progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         //1. Obtain auth_code.
         Login(authorizeButton);
     }
@@ -141,6 +154,19 @@ public class MainActivity extends AppCompatActivity {
             }
             if (scheme.equals("http")) {
                 loadInfoButton.setVisibility(View.VISIBLE);
+                loadInfoButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        progressBar.setVisibility(View.VISIBLE);
+                        new Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                GetCertificatesList();
+                                progressBar.setVisibility(View.GONE);
+                            }
+                        }, 0);
+                    }
+                });
                 viewButton.setVisibility(View.VISIBLE);
                 authorizeButton.setVisibility(View.INVISIBLE);
             }
@@ -201,30 +227,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //3. If auth_token, obtain Credentials IDS.
-    //deprecated.
-    public void getCredentialIds(View view) {
-        Context context = this;
-        HelperClass helperClass = new HelperClass(this);
-        Intent intent = new Intent(this, ViewPDFActivity.class);
-        if (helperClass.InternetConnection() == false) {
-            helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
-                    context, "Internet Error!");
-        } else {
-            if (!authCode.isEmpty()) {
-                if (!authToken.isEmpty()) {
-                    Log.d("Access", "message");
-                    Log.d("we_are", "here");
-                    Log.d("Auth Token", authToken);
-                    String url = BASE_URL + "credentials/list";
-                    certificatesButton.setVisibility(View.VISIBLE);
-                    credentialIds = new ArrayList<String>();
-                    GetCredentialIds getCredentialIds = new GetCredentialIds();
-                    getCredentialIds.execute(url);
-                }
-            }
-        }
-    }
-
     public ArrayList<String> GetCredentialIDS() {
         ArrayList<String> credIds = new ArrayList<String>();
         String response = "";
@@ -301,19 +303,6 @@ public class MainActivity extends AppCompatActivity {
         return certArrayList;
     }
 
-    //deprecated.
-    public void getInfo(View view) {
-        certInfo = new ArrayList<String>();
-        if (credentialIds.size() > 0) {
-            for (int i = 0; i < credentialIds.size(); i++) {
-                Log.d("InFunction", credentialIds.get(i));
-                GetCertificates getCertificates = new GetCertificates();
-                String url = BASE_URL + "credentials/info";
-                certInfoButton.setVisibility(View.VISIBLE);
-                getCertificates.execute(url, credentialIds.get(i));
-            }
-        }
-    }
 
     public void setCertInfo(ArrayList<String> certificatesInfo, final ArrayList<String> credIds) {
         certSpinner.setVisibility(View.VISIBLE);
@@ -374,12 +363,13 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public void GetCertificatesList(View view) {
+    //gets certificates list
+    public void GetCertificatesList() {
         ArrayList<String> credIds = new ArrayList<>();
         ArrayList<String> certificatesInfo = new ArrayList<>();
         Context context = this;
+
         HelperClass helperClass = new HelperClass(this);
-        Intent intent = new Intent(this, ViewPDFActivity.class);
         if (helperClass.InternetConnection() == false) {
             helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                     context, "Internet Error!");
@@ -409,22 +399,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //deprecated.
-    public void sendOTP(View view) {
-        String selectedCertificate = certSpinner.getSelectedItem().toString();
-        int index = (int) certSpinner.getSelectedItemId();
-        selectedCertificateIndex = index;
-        Log.d("Selected", selectedCertificate);
-        Log.d("SelectedID", Long.toString(index));
-        getSadButton.setVisibility(View.VISIBLE);
-        String url = BASE_URL + "credentials/sendOTP";
-        tanCode.setVisibility(View.VISIBLE);
-        signPasswd.setVisibility(View.VISIBLE);
-        SendOtp sendOtp = new SendOtp();
-        Log.d("OTP-credentialID", credentialIds.get(selectedCertificateIndex));
-        sendOtp.execute(url, credentialIds.get(selectedCertificateIndex));
-    }
-
+    //gets sad - signature activation data
     public String GetSadResponse(String hash, String otpCode, String signPassword) {
         String sadValue = "";
         String response = "";
@@ -449,6 +424,7 @@ public class MainActivity extends AppCompatActivity {
         return sadValue;
     }
 
+    //signs hash
     public String GetSignature(String hash, String sadResponse) {
         String response = "";
         String url = BASE_URL + "signatures/signHash";
@@ -478,50 +454,20 @@ public class MainActivity extends AppCompatActivity {
         return signatureString;
     }
 
-    public void GetSad(View view) {
-        /*String otpCode = tanCode.getText().toString();
-        String signPassword = signPasswd.getText().toString();
-        Log.d("Tan Code", otpCode);
-        Log.d("Sign Password", signPassword);
-        SadClass sadClass = new SadClass();
-        String response = "";
-        String hash = "";
-        String url = BASE_URL + "credentials/authorize";
-        try {
-            byte[] bytes = ("text to hash").getBytes("UTF-8");
-            MessageDigest mHash = MessageDigest.getInstance("SHA-256");
-            byte[] encodedHash = mHash.digest(bytes);
-            hash = Base64.encodeToString(encodedHash, Base64.NO_WRAP);
-            Log.d("hash", hash);
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        String hashTest = "E3z8VQoHVdzWBfdlxmLEnPVIgYE9ZZkM+XWz6QNK+Ls=";
-        Log.d("SAD-credentialID", credentialIds.get(selectedCertificateIndex));
-        String sadValue = "";
-        try {
-            sadValue = GetSadResponse(hashTest, otpCode, signPassword);
-        } catch (Exception e) {
-            Log.d("Error", e.getMessage());
-        }
-
-        Log.d("SAD-value", sadValue);*/
-        //signButton.setVisibility(View.VISIBLE);
-/*        tanCode.setText("");
-        signPasswd.setText("");*/
-    }
-
 
     void onRemoteSignHandler(Object sender, byte[] Hash, byte[] SignedHash) {
         String otpCode = "";
         String signPassword = "";
         String sadValue = "";
         //byte[] to base64
-        String docHash = "";
+        String docHashBase64 = "";
+        try {
+            docHashBase64 = Base64.encodeToString(Hash, Base64.DEFAULT);
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
         //base64 to byte[]
-        String respHash = "";
+        String respHashBase64 = "";
 
         if (!tanCode.getText().toString().isEmpty()) {
             otpCode = tanCode.getText().toString();
@@ -531,30 +477,109 @@ public class MainActivity extends AppCompatActivity {
         }
         if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
             //get sad for hash
-            sadValue = GetSadResponse(docHash, otpCode, signPassword);
+            sadValue = GetSadResponse(docHashBase64, otpCode, signPassword);
         }
-        if(!sadValue.isEmpty()){
-            try{
-
-            }
-            catch (Exception e){
-                Log.d("Error",e.getMessage());
+        if (!sadValue.isEmpty()) {
+            try {
+                respHashBase64 = GetSignature(docHashBase64, sadValue);
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
             }
         }
+        if (!respHashBase64.isEmpty()) {
+            try {
+                SignedHash = Base64.decode(respHashBase64, Base64.DEFAULT);
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+        }
+    }
 
+    //prepare signature
+    private void openDocument() {
+        String fileName = "";
+        HelperClass helperClass = new HelperClass(this);
+        String path = helperClass.getValue(this, "Path");
+        PrepareTemporaryFile(fileName);
+        try
+        {
+            m_CurrDoc = new TElPDFDocument();
+            try
+            {
+                m_CurrDoc.setOwnActivatedSecurityHandlers(true);
+                m_CurrDoc.open(m_CurrStream);
+                //ExtractRevInfo();
+                //RefreshView();
+            }
+            catch (Exception exc)
+            {
+                m_CurrDoc = null;
+                throw exc;
+            }
+        } catch(Exception ex) {
+            DeleteTemporaryFile(false);
+            throw ex;
+        }
+    }
 
-        //sign hash
+    private void PrepareTemporaryFile(String srcFile) {
+        String TempPath = getCacheDir().toString();
+        try {
+            copyFile(srcFile, TempPath, true);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.d("Error", e.getMessage());
+        }
+        m_CurrStream = new TElFileStream(TempPath, "rw", true);
+        m_CurrOrigFile = srcFile;
+        m_CurrTempFile = TempPath;
+    }
+
+    private void copyFile(String src, String dest, boolean overwrite) throws IOException {
+        RandomAccessFile inputFile = new RandomAccessFile(src, "r");
+        RandomAccessFile outputFile = new RandomAccessFile(dest, "rw");
+        byte[] buf = new byte[1024];
+        int r;
+
+        if (overwrite)
+            outputFile.setLength(0);
+
+        do {
+            r = inputFile.read(buf);
+            if (r > 0)
+                outputFile.write(buf, 0, r);
+        } while (r > 0);
+
+        inputFile.close();
+        outputFile.close();
+    }
+
+    private void DeleteTemporaryFile(boolean saveChanges) {
+        if (m_CurrStream != null) {
+            m_CurrStream.Destroy();
+            m_CurrStream = null;
+        }
+        if (saveChanges) {
+            try {
+                copyFile(m_CurrTempFile, m_CurrOrigFile, true);
+            } catch (IOException e) {
+                Log.d("Error", e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        new File(m_CurrTempFile).delete();
+        m_CurrTempFile = "";
+        m_CurrOrigFile = "";
     }
 
     public void SignDocument(View view) {
-        TElPDFSignature tElPDFSignature;
-        SBUtils.setLicenseKey("914800F8C906204E26B3879514D6A459D6C317817E6D68EFB2B70B6A38221B534442125967" +
-                "4E353F6B3BA7F405A895CE1B9F1B6A27F119474E37F2CAA0F325DD9C1C2E9B7D064AA997C23B7A092CA12CB14" +
-                "EC8E82D221A87566A13A50E4C51BDFDE66AD289A1F910E456E969FBA03674EE44E1822379C01FF2861A652FF58" +
-                "7940634F6365C818A123775BAA414C3BBFF6940655E7D3F5C30551F850AACCF88AACCB481A51A792A10BCED386F" +
-                "F7CF422F50DDED61B1285139B9DC34719BF4F5F81ACF2DE0649923898CE2DAAE313C385A2A7B6388EE2A73CEC17" +
-                "30C5021FEB2C65EF65D3BB10FE1B92FE4912E333647324E5DC68344AA26BDCF4A65EB365F461E");
         String filePath = "";
+        SBUtils.setLicenseKey("4E6D44C2173B71B6C3EB107A72DB0C21F8A6508511DF58B527A4F002C69466DF5A4C6F741AB80E3135506DA5A882" +
+                "ECCB75593C32CEF137607D92C36332C190ACD13D46733B9F832969451AAD26902F4D43E4831526E67AA150F1A62D1FBBDF3B2866D3" +
+                "33293C3C03F1AADD0DE9110F442E1B7F570E71EF755465F94F294CB1595AED9FBDA6D0E4D5D6CAB9D06B730355EE501BD494ABACCE3" +
+                "102474FC724D5F57D8C7AF7C77DF9547E9031084B6C4B492BE7BE8A3F26539D497005F802ADEB5F8D5953995A7594A3A0EE96410A9F" +
+                "02BCD67D9220082ECC2C863956FF80579B52AE31D720BA6EA816CA0A82BFB54773D9CE520746BE11E3E3BEC30BB26C36733C");
+
         HelperClass helperClass = new HelperClass(this);
         filePath = helperClass.getValue(this, FILE_PATH);
         Log.d("Sign_FilePath", filePath);
@@ -581,6 +606,7 @@ public class MainActivity extends AppCompatActivity {
         if (!sadValue.isEmpty()) {
             try {
                 respHash = GetSignature(docHash, sadValue);
+                Log.d("Signature", respHash);
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
@@ -1007,8 +1033,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-
     //deprecated functions -- functii care sunt folosite doar pentru testarea anumitor functionalitati.
     //deprecated.
     public void setCertInfo(View view) {
@@ -1017,6 +1041,96 @@ public class MainActivity extends AppCompatActivity {
         Log.d("Adapter", certInfo.get(0));
         arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         certSpinner.setAdapter(arrayAdapter);
-        sendOtpButton.setVisibility(View.VISIBLE);
+        //sendOtpButton.setVisibility(View.VISIBLE);
+    }
+
+    //deprecated
+    public void GetSad(View view) {
+        String otpCode = tanCode.getText().toString();
+        String signPassword = signPasswd.getText().toString();
+        Log.d("Tan Code", otpCode);
+        Log.d("Sign Password", signPassword);
+        SadClass sadClass = new SadClass();
+        String response = "";
+        String hash = "";
+        String url = BASE_URL + "credentials/authorize";
+        try {
+            byte[] bytes = ("text to hash").getBytes("UTF-8");
+            MessageDigest mHash = MessageDigest.getInstance("SHA-256");
+            byte[] encodedHash = mHash.digest(bytes);
+            hash = Base64.encodeToString(encodedHash, Base64.NO_WRAP);
+            Log.d("hash", hash);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        String hashTest = "E3z8VQoHVdzWBfdlxmLEnPVIgYE9ZZkM+XWz6QNK+Ls=";
+        Log.d("SAD-credentialID", credentialIds.get(selectedCertificateIndex));
+        String sadValue = "";
+        try {
+            sadValue = GetSadResponse(hashTest, otpCode, signPassword);
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+
+        Log.d("SAD-value", sadValue);
+        //signButton.setVisibility(View.VISIBLE);
+        tanCode.setText("");
+        signPasswd.setText("");
+    }
+
+    //deprecated.
+    public void sendOTP(View view) {
+        String selectedCertificate = certSpinner.getSelectedItem().toString();
+        int index = (int) certSpinner.getSelectedItemId();
+        selectedCertificateIndex = index;
+        Log.d("Selected", selectedCertificate);
+        Log.d("SelectedID", Long.toString(index));
+        //getSadButton.setVisibility(View.VISIBLE);
+        String url = BASE_URL + "credentials/sendOTP";
+        tanCode.setVisibility(View.VISIBLE);
+        signPasswd.setVisibility(View.VISIBLE);
+        SendOtp sendOtp = new SendOtp();
+        Log.d("OTP-credentialID", credentialIds.get(selectedCertificateIndex));
+        sendOtp.execute(url, credentialIds.get(selectedCertificateIndex));
+    }
+
+    //deprecated.
+    public void getInfo(View view) {
+        certInfo = new ArrayList<String>();
+        if (credentialIds.size() > 0) {
+            for (int i = 0; i < credentialIds.size(); i++) {
+                Log.d("InFunction", credentialIds.get(i));
+                GetCertificates getCertificates = new GetCertificates();
+                String url = BASE_URL + "credentials/info";
+                //certInfoButton.setVisibility(View.VISIBLE);
+                getCertificates.execute(url, credentialIds.get(i));
+            }
+        }
+    }
+
+    //deprecated.
+    public void getCredentialIds(View view) {
+        Context context = this;
+        HelperClass helperClass = new HelperClass(this);
+        Intent intent = new Intent(this, ViewPDFActivity.class);
+        if (helperClass.InternetConnection() == false) {
+            helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
+                    context, "Internet Error!");
+        } else {
+            if (!authCode.isEmpty()) {
+                if (!authToken.isEmpty()) {
+                    Log.d("Access", "message");
+                    Log.d("we_are", "here");
+                    Log.d("Auth Token", authToken);
+                    String url = BASE_URL + "credentials/list";
+                    //certificatesButton.setVisibility(View.VISIBLE);
+                    credentialIds = new ArrayList<String>();
+                    GetCredentialIds getCredentialIds = new GetCredentialIds();
+                    getCredentialIds.execute(url);
+                }
+            }
+        }
     }
 }
