@@ -650,8 +650,9 @@ public class MainActivity extends AppCompatActivity {
             m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
             m_Handler.setCustomName("Adobe.PPKMS");
             m_Handler.setRemoteSigningMode(true);
-           
+
             TSBPDFRemoteSignEvent ev = m_Handler.getOnRemoteSign();
+            m_Handler.setOnRemoteSign(null);
 
             m_Handler.setTSPClient(null);
             Date date = new Date();
