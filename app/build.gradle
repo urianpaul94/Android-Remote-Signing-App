@@ -32,4 +32,8 @@ dependencies {
     implementation 'com.github.barteksc:android-pdf-viewer:2.6.1'
     implementation files('libs/SecureBlackbox.LDAP.jar')
     implementation files('libs/SecureBlackbox.HTTPClient.jar')
+    implementation files('libs/SecureBlackbox.HTTPCommon.jar')
+    implementation files('libs/SecureBlackbox.SSLClient.jar')
+    implementation files('libs/SecureBlackbox.SSLCommon.jar')
+    implementation files('libs/SecureBlackbox.DC.jar')
 }

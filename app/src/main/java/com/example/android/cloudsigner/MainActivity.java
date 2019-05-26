@@ -3,6 +3,7 @@ package com.example.android.cloudsigner;
 import android.content.Context;
 import android.content.Intent;
 import android.icu.text.SimpleDateFormat;
+import android.icu.util.TimeZone;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -19,6 +20,7 @@ import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import org.freepascal.rtl.TObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -33,6 +35,9 @@ import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -116,6 +121,8 @@ public class MainActivity extends AppCompatActivity {
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
+
+        m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         //1. Obtain auth_code.
         Login(authorizeButton);
     }
@@ -497,33 +504,28 @@ public class MainActivity extends AppCompatActivity {
 
     //prepare signature
     private void openDocument() {
-        String fileName = "";
         HelperClass helperClass = new HelperClass(this);
         String path = helperClass.getValue(this, "Path");
-        PrepareTemporaryFile(fileName);
-        try
-        {
+        PrepareTemporaryFile(path);
+        try {
             m_CurrDoc = new TElPDFDocument();
-            try
-            {
+            try {
                 m_CurrDoc.setOwnActivatedSecurityHandlers(true);
                 m_CurrDoc.open(m_CurrStream);
-                //ExtractRevInfo();
+                ExtractRevInfo();
                 //RefreshView();
-            }
-            catch (Exception exc)
-            {
+            } catch (Exception exc) {
                 m_CurrDoc = null;
                 throw exc;
             }
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             DeleteTemporaryFile(false);
             throw ex;
         }
     }
 
     private void PrepareTemporaryFile(String srcFile) {
-        String TempPath = getCacheDir().toString();
+        String TempPath = getCacheDir().toString() + "/C+++ND+-+Syllabus+.pdf";
         try {
             copyFile(srcFile, TempPath, true);
         } catch (IOException e) {
@@ -572,6 +574,50 @@ public class MainActivity extends AppCompatActivity {
         m_CurrOrigFile = "";
     }
 
+    private void ExtractRevInfo() {
+        if (m_CurrDoc == null) {
+            return;
+        }
+        m_DocRevInfo.clear();
+        boolean DSSAdded = false;
+        for (int i = 0; i < m_CurrDoc.getSignatureCount(); i++) {
+            if (m_CurrDoc.getSignatureEntry(i).getHandler() instanceof TElPDFAdvancedPublicKeySecurityHandler) {
+                TElPDFAdvancedPublicKeySecurityHandler handler = (TElPDFAdvancedPublicKeySecurityHandler) m_CurrDoc.getSignatureEntry(i).getHandler();
+                if (!DSSAdded) {
+                    m_DocRevInfo.assign(handler.getDSSRevocationInfo(), false);
+                    DSSAdded = true;
+                }
+                m_DocRevInfo.assign(handler.getRevocationInfo(), false);
+            }
+        }
+    }
+
+    private void RefreshView() {
+        //RefreshDocumentInfo();
+        //RefreshSignaturesInfo();
+        //RefreshRevInfo();
+    }
+
+    private boolean CloseCurrentDocument(boolean saveChanges) {
+        boolean res = true;
+        try {
+            if (m_CurrDoc != null) {
+                try {
+                    m_CurrDoc.close(saveChanges);
+                } finally {
+                    m_CurrDoc = null;
+                }
+            }
+        } catch (Exception ex) {
+            res = false;
+            Log.d("Error", ex.getMessage());
+        }
+        if (m_CurrStream != null) {
+            DeleteTemporaryFile(saveChanges);
+        }
+        return res;
+    }
+
     public void SignDocument(View view) {
         String filePath = "";
         SBUtils.setLicenseKey("4E6D44C2173B71B6C3EB107A72DB0C21F8A6508511DF58B527A4F002C69466DF5A4C6F741AB80E3135506DA5A882" +
@@ -583,8 +629,45 @@ public class MainActivity extends AppCompatActivity {
         HelperClass helperClass = new HelperClass(this);
         filePath = helperClass.getValue(this, FILE_PATH);
         Log.d("Sign_FilePath", filePath);
-
         //test
+
+        openDocument();
+
+
+        TSBPDFRemoteSignEvent.Callback OnRemoteSign = new TSBPDFRemoteSignEvent.Callback() {
+            @Override
+            public byte[] tsbpdfRemoteSignEventCallback(TObject Sender, byte[] bytes) {
+                return new byte[0];
+            }
+        };
+        TSBPDFRemoteSignEvent myEvent = new TSBPDFRemoteSignEvent();
+
+        try {
+            int idx = m_CurrDoc.addSignature();
+            TElPDFSignature sig = m_CurrDoc.getSignatureEntry(idx);
+            sig.setHandler(m_Handler);
+            m_CertStorage.clear();
+            m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
+            m_Handler.setCustomName("Adobe.PPKMS");
+            m_Handler.setRemoteSigningMode(true);
+           
+            TSBPDFRemoteSignEvent ev = m_Handler.getOnRemoteSign();
+
+            m_Handler.setTSPClient(null);
+            Date date = new Date();
+            sig.setSigningTime(date);
+
+            if (CloseCurrentDocument(true))
+                Log.d("Message", "\"Signed document!");
+            else {
+                Log.d("Error", "\"Signature failed!");
+            }
+
+        } catch (
+                Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+
         String otpCode = "";
         String signPassword = "";
         String sadValue = "";
@@ -593,10 +676,18 @@ public class MainActivity extends AppCompatActivity {
         //base64 to byte[]
         String respHash = "";
 
-        if (!tanCode.getText().toString().isEmpty()) {
+        if (!tanCode.getText().
+
+                toString().
+
+                isEmpty()) {
             otpCode = tanCode.getText().toString();
         }
-        if (!signPasswd.getText().toString().isEmpty()) {
+        if (!signPasswd.getText().
+
+                toString().
+
+                isEmpty()) {
             signPassword = signPasswd.getText().toString();
         }
         if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
@@ -1030,6 +1121,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Error", e.getMessage());
             }
         }
+
     }
 
 
