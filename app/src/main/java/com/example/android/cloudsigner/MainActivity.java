@@ -7,6 +7,7 @@ import android.icu.util.TimeZone;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
@@ -28,19 +29,28 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.StringTokenizer;
 import java.util.concurrent.ExecutionException;
 
@@ -72,7 +82,9 @@ public class MainActivity extends AppCompatActivity {
     private boolean isPdf = false;
     private ArrayList<String> credentialIds;
     private ArrayList<String> certInfo;
+    private ArrayList<String> serialNumbers;
     private int selectedCertificateIndex = 0;
+    private String selectedCertificatePath = "";
 
     //signature_
     private TElPDFDocument m_CurrDoc = null;
@@ -270,6 +282,7 @@ public class MainActivity extends AppCompatActivity {
     public ArrayList<String> getCertificatesInformation(ArrayList<String> credentialIdList) {
         ArrayList<String> certArrayList = new ArrayList<>();
         String response = "";
+        String serialNumber = "";
         String url = BASE_URL + "credentials/info";
         for (int i = 0; i < credentialIdList.size(); i++) {
             try {
@@ -278,12 +291,13 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
-            StringTokenizer stringTokenizer = new StringTokenizer(response, ",:{}\"");
+            StringTokenizer stringTokenizer = new StringTokenizer(response, ",:[]{}\"");
             int tokens = stringTokenizer.countTokens();
             String token = "";
             String alias = "";
             String keyStatus = "";
             String certStatus = "";
+            boolean serialN = false;
             while (stringTokenizer.hasMoreTokens()) {
                 token = stringTokenizer.nextToken();
                 if (token.equals("Card alias")) {
@@ -294,13 +308,18 @@ public class MainActivity extends AppCompatActivity {
                 } else if (token.equals("cert")) {
                     stringTokenizer.nextToken();
                     certStatus = stringTokenizer.nextToken();
+                } else if (token.equals("serialNumber") && serialN == false) {
+                    serialN = true;
+                    serialNumber = stringTokenizer.nextToken();
                 }
             }
+            Log.d("SerialN", serialNumber);
             Log.d("Alias", alias + " " + keyStatus + " " + certStatus);
             if (keyStatus.equals("enabled") && certStatus.equals("valid")) {
                 String crtAlias = "Cert-Alias:";
                 String crtNo = certArrayList.size() + 1 + ". " + crtAlias;
                 certArrayList.add(crtNo + alias);
+                serialNumbers.add(serialNumber);
                 Log.d("certInfo[certNumber]", certArrayList.get(certArrayList.size() - 1));
                 Log.d("cert number", Integer.toString(certArrayList.size()));
             }
@@ -323,9 +342,10 @@ public class MainActivity extends AppCompatActivity {
         certSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                 Log.d("Spinner", "Selected");
-                //String selected=certSpinner.getSelectedItem().toString();
                 int index = (int) certSpinner.getSelectedItemId();
                 selectedCertificateIndex = index;
+                selectedCertificatePath=loadCertificate(serialNumbers.get(selectedCertificateIndex));
+                Log.d("LoadedCertificate",selectedCertificatePath);
                 SendOtp sendOtp = new SendOtp();
                 sendOtp.execute(url, credIds.get(selectedCertificateIndex));
                 signButton.setVisibility(View.VISIBLE);
@@ -375,7 +395,6 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<String> credIds = new ArrayList<>();
         ArrayList<String> certificatesInfo = new ArrayList<>();
         Context context = this;
-
         HelperClass helperClass = new HelperClass(this);
         if (helperClass.InternetConnection() == false) {
             helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
@@ -616,6 +635,36 @@ public class MainActivity extends AppCompatActivity {
             DeleteTemporaryFile(saveChanges);
         }
         return res;
+    }
+
+    private String loadCertificate(String serialNumber) {
+
+        String path = Environment.getExternalStorageDirectory().toString() + "/Download/Private";
+
+        Log.d("Files", "Path: " + path);
+        File directory = new File(path);
+        File[] files = directory.listFiles();
+        Log.d("Files", "Size: " + files.length);
+        for (int i = 0; i < files.length; i++) {
+            Log.d("Files", "FileName:" + files[i].getName());
+            String location = path + "/" + files[i].getName();
+            try {
+
+                File file = new File(location);
+                InputStream is = new FileInputStream(file);
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                X509Certificate certificate = (X509Certificate) cf.generateCertificate(is);
+                Log.d("Certificate", certificate.getSigAlgName());
+                Log.d("SerialNumber", certificate.getSerialNumber().toString());
+                if(serialNumber.equals(certificate.getSerialNumber().toString())){
+                    return location;
+                }
+
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+        }
+        return "";
     }
 
     public void SignDocument(View view) {
