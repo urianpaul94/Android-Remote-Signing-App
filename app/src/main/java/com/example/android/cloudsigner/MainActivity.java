@@ -133,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
-
+        serialNumbers=new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         //1. Obtain auth_code.
         Login(authorizeButton);
@@ -246,7 +246,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //3. If auth_token, obtain Credentials IDS.
-    public ArrayList<String> GetCredentialIDS() {
+    private ArrayList<String> GetCredentialIDS() {
         ArrayList<String> credIds = new ArrayList<String>();
         String response = "";
         String url = BASE_URL + "credentials/list";
@@ -279,7 +279,10 @@ public class MainActivity extends AppCompatActivity {
         return credIds;
     }
 
-    public ArrayList<String> getCertificatesInformation(ArrayList<String> credentialIdList) {
+    private static long hexToLong(String hex) {
+        return Long.parseLong(hex, 16);
+    }
+    private ArrayList<String> getCertificatesInformation(ArrayList<String> credentialIdList) {
         ArrayList<String> certArrayList = new ArrayList<>();
         String response = "";
         String serialNumber = "";
@@ -319,36 +322,47 @@ public class MainActivity extends AppCompatActivity {
                 String crtAlias = "Cert-Alias:";
                 String crtNo = certArrayList.size() + 1 + ". " + crtAlias;
                 certArrayList.add(crtNo + alias);
-                serialNumbers.add(serialNumber);
+                long serial=hexToLong(serialNumber);
+                serialNumbers.add(Long.toString(serial));
                 Log.d("certInfo[certNumber]", certArrayList.get(certArrayList.size() - 1));
                 Log.d("cert number", Integer.toString(certArrayList.size()));
             }
 
         }
-
         return certArrayList;
     }
 
 
-    public void setCertInfo(ArrayList<String> certificatesInfo, final ArrayList<String> credIds) {
+    public void setCertInfo(final ArrayList<String> certificatesInfo, final ArrayList<String> credIds) {
         certSpinner.setVisibility(View.VISIBLE);
-        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, certificatesInfo);
+        final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, certificatesInfo);
         Log.d("Adapter", certificatesInfo.get(0));
         arrayAdapter.setDropDownViewResource(R.layout.spinner_drop_down_items);
         certSpinner.setAdapter(arrayAdapter);
         final String url = BASE_URL + "credentials/sendOTP";
         //sendOtpButton.setVisibility(View.VISIBLE);
         certSpinner.setPrompt("Select your certificate!");
+        final HelperClass myClass=new HelperClass(this);
+        final Context context=this;
         certSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                 Log.d("Spinner", "Selected");
                 int index = (int) certSpinner.getSelectedItemId();
                 selectedCertificateIndex = index;
+                //this is the path to the certificate downloaded on the phone!
                 selectedCertificatePath=loadCertificate(serialNumbers.get(selectedCertificateIndex));
-                Log.d("LoadedCertificate",selectedCertificatePath);
-                SendOtp sendOtp = new SendOtp();
-                sendOtp.execute(url, credIds.get(selectedCertificateIndex));
-                signButton.setVisibility(View.VISIBLE);
+                if(selectedCertificatePath.equals("")){
+                    myClass.AlertDialogBuilder("Please go to https://msign-test.transsped.ro/serverbku/protected/index.jsf," +
+                            "login with your credentials and download the specified certificate in order to be able to sing a document!"
+                            ,context,"Certificate error!");
+                }
+                else{
+                    Log.d("LoadedCertificate",selectedCertificatePath);
+                    SendOtp sendOtp = new SendOtp();
+                    sendOtp.execute(url, credIds.get(selectedCertificateIndex));
+                    signButton.setVisibility(View.VISIBLE);
+                }
+
             }
 
             public void onNothingSelected(AdapterView<?> adapterView) {
@@ -656,6 +670,7 @@ public class MainActivity extends AppCompatActivity {
                 X509Certificate certificate = (X509Certificate) cf.generateCertificate(is);
                 Log.d("Certificate", certificate.getSigAlgName());
                 Log.d("SerialNumber", certificate.getSerialNumber().toString());
+
                 if(serialNumber.equals(certificate.getSerialNumber().toString())){
                     return location;
                 }
