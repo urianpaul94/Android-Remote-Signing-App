@@ -7,6 +7,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
@@ -14,7 +15,14 @@ import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.support.v4.text.HtmlCompat;
+import android.text.Html;
+import android.text.SpannableString;
+import android.text.method.LinkMovementMethod;
+import android.text.util.Linkify;
 import android.util.Log;
+import android.view.Gravity;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import static android.content.Context.CONNECTIVITY_SERVICE;
@@ -204,11 +212,26 @@ public class HelperClass {
 
 
     public void AlertDialogBuilder(String message, final Context context, String title) {
+        final SpannableString str = new SpannableString(message);
+        Linkify.addLinks(str, Linkify.WEB_URLS);
+
+        TextView textView = new TextView(context);
+        textView.setText(title);
+        textView.setGravity(Gravity.CENTER);
+        textView.setTextColor(Color.parseColor("#FF0000"));
+        textView.setTextSize(22);
+
         AlertDialog.Builder newAlert = new AlertDialog.Builder(context);
-        newAlert.setMessage(message);
-        newAlert.setTitle(title);
+        newAlert.setMessage(str);
+        newAlert.setCustomTitle(textView);
         newAlert.setCancelable(true);
+        newAlert.setNegativeButton("OK", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                dialog.cancel();
+            }
+        });
         AlertDialog alert = newAlert.create();
         alert.show();
+        ((TextView) alert.findViewById(android.R.id.message)).setMovementMethod(LinkMovementMethod.getInstance());
     }
 }
