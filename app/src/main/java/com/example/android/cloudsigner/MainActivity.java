@@ -1,7 +1,10 @@
 package com.example.android.cloudsigner;
 
+import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.TimeZone;
 import android.net.Uri;
@@ -9,6 +12,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
 import android.util.Log;
@@ -86,6 +90,8 @@ public class MainActivity extends AppCompatActivity {
     private int selectedCertificateIndex = 0;
     private String selectedCertificatePath = "";
 
+
+
     //signature_
     private TElPDFDocument m_CurrDoc = null;
     private String m_CurrOrigFile = "";
@@ -135,6 +141,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         serialNumbers = new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
+        helperClass.verifyStoragePermissions(MainActivity.this);
         //1. Obtain auth_code.
         Login(authorizeButton);
     }
@@ -381,6 +388,8 @@ public class MainActivity extends AppCompatActivity {
         date.setText(myDate);
     }
 
+
+
     public void viewPdf(View view) {
         Intent intent = new Intent(MainActivity.this, ViewPDFActivity.class);
         startActivity(intent);
@@ -560,7 +569,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void PrepareTemporaryFile(String srcFile) {
-        String TempPath = getCacheDir().toString() + "/C+++ND+-+Syllabus+.pdf";
+        String TempPath = getCacheDir().toString() + "/wantedFile.pdf";
         try {
             copyFile(srcFile, TempPath, true);
         } catch (IOException e) {
@@ -684,6 +693,52 @@ public class MainActivity extends AppCompatActivity {
         return "";
     }
 
+    TSBPDFRemoteSignEvent.Callback OnRemoteSign = new TSBPDFRemoteSignEvent.Callback() {
+        @Override
+        public byte[] tsbpdfRemoteSignEventCallback(TObject Sender, byte[] Hash) {
+            String otpCode = "";
+            String signPassword = "";
+            String sadValue = "";
+            byte[] SignedHash;
+            //byte[] to base64
+            String docHashBase64 = "";
+            try {
+                docHashBase64 = Base64.encodeToString(Hash, Base64.DEFAULT);
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            //base64 to byte[]
+            String respHashBase64 = "";
+
+            if (!tanCode.getText().toString().isEmpty()) {
+                otpCode = tanCode.getText().toString();
+            }
+            if (!signPasswd.getText().toString().isEmpty()) {
+                signPassword = signPasswd.getText().toString();
+            }
+            if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
+                //get sad for hash
+                sadValue = GetSadResponse(docHashBase64, otpCode, signPassword);
+            }
+            if (!sadValue.isEmpty()) {
+                try {
+                    respHashBase64 = GetSignature(docHashBase64, sadValue);
+                } catch (Exception e) {
+                    Log.d("Error", e.getMessage());
+                }
+            }
+            if (!respHashBase64.isEmpty()) {
+                try {
+                    SignedHash = Base64.decode(respHashBase64, Base64.DEFAULT);
+                    return SignedHash;
+                } catch (Exception e) {
+                    Log.d("Error", e.getMessage());
+                }
+            }
+            return new byte[0];
+        }
+    };
+
     public void SignDocument(View view) {
         String filePath = "";
         SBUtils.setLicenseKey("4E6D44C2173B71B6C3EB107A72DB0C21F8A6508511DF58B527A4F002C69466DF5A4C6F741AB80E3135506DA5A882" +
@@ -695,18 +750,8 @@ public class MainActivity extends AppCompatActivity {
         HelperClass helperClass = new HelperClass(this);
         filePath = helperClass.getValue(this, FILE_PATH);
         Log.d("Sign_FilePath", filePath);
-        //test
 
         openDocument();
-
-
-        TSBPDFRemoteSignEvent.Callback OnRemoteSign = new TSBPDFRemoteSignEvent.Callback() {
-            @Override
-            public byte[] tsbpdfRemoteSignEventCallback(TObject Sender, byte[] bytes) {
-                return new byte[0];
-            }
-        };
-        TSBPDFRemoteSignEvent myEvent = new TSBPDFRemoteSignEvent();
 
         try {
             int idx = m_CurrDoc.addSignature();
@@ -716,10 +761,7 @@ public class MainActivity extends AppCompatActivity {
             m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
             m_Handler.setCustomName("Adobe.PPKMS");
             m_Handler.setRemoteSigningMode(true);
-
-            TSBPDFRemoteSignEvent ev = m_Handler.getOnRemoteSign();
-            m_Handler.setOnRemoteSign(null);
-
+            m_Handler.setOnRemoteSign(new TSBPDFRemoteSignEvent(OnRemoteSign));
             m_Handler.setTSPClient(null);
             Date date = new Date();
             sig.setSigningTime(date);
@@ -735,7 +777,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("Error", e.getMessage());
         }
 
-        String otpCode = "";
+/*        String otpCode = "";
         String signPassword = "";
         String sadValue = "";
         //byte[] to base64
@@ -768,7 +810,7 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
-        }
+        }*/
 
     }
 
