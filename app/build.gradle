@@ -36,4 +36,5 @@ dependencies {
     implementation files('libs/SecureBlackbox.SSLClient.jar')
     implementation files('libs/SecureBlackbox.SSLCommon.jar')
     implementation files('libs/SecureBlackbox.DC.jar')
+
 }

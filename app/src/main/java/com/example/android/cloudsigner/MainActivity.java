@@ -16,6 +16,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Xml;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -31,6 +32,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,6 +43,7 @@ import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
@@ -91,7 +94,6 @@ public class MainActivity extends AppCompatActivity {
     private String selectedCertificatePath = "";
 
 
-
     //signature_
     private TElPDFDocument m_CurrDoc = null;
     private String m_CurrOrigFile = "";
@@ -107,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
     TElHTTPTSPClient m_TspClient = new TElHTTPTSPClient();
     TElHTTPSClient m_HttpClient = new TElHTTPSClient();
     TElStringList m_CertValidationLog = new TElStringList();
+    TElX509Certificate m_cert = new TElX509Certificate();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,6 +134,11 @@ public class MainActivity extends AppCompatActivity {
             isPdf = false;
             Log.d("Error", e.getMessage());
         }
+
+        String test = "Yfg0i1QfxjUg/NXr72MUBX0Uom891YgspRj54GlzLDuKFkuM28ZNXPm1VgzOFkTy\r\nJ9WIt0Tc/cz2z/YmM0xBYSlesptnIh+qRZhtL565YAU+ad2hvFmT4A2EnqUgC5kO\r\np/AwxBfwHKt5lWP6JmTiMWBk/AK/vJdlECArtBn0lUpGSXgwqyyHWw98zuMF4eGo\r\nZTxfdzNADgTRH0Rt7VoTZ4lW/Dq3uf/X3TOgx9Nnu2Zg8q7LMMz3JzzI2UnkQX8J\r\nO/GnWY4mnWvVT84GTZPWBkj3azMfM7UUbEm+xkSbdj8JAHATL/qOVw+aJ3U5ixz3\r\nDvT2gQoIAGmr72MXctcKbg==";
+        //test
+        Log.d("Test", (test.replaceAll("(\r\n|\r|\n|\n\r)", "<br>")));
+
         loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
         authorizeButton = (Button) findViewById(R.id.button_authorize);
@@ -389,7 +397,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     public void viewPdf(View view) {
         Intent intent = new Intent(MainActivity.this, ViewPDFActivity.class);
         startActivity(intent);
@@ -479,6 +486,7 @@ public class MainActivity extends AppCompatActivity {
     public String GetSignature(String hash, String sadResponse) {
         String response = "";
         String url = BASE_URL + "signatures/signHash";
+        String formatSignature = "";
         SignClass signClass = new SignClass();
         try {
             response = signClass.execute(url, credentialIds.get(selectedCertificateIndex), hash, sadResponse).get();
@@ -499,52 +507,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-        if (signatureString.isEmpty()) {
+        if (!signatureString.isEmpty()) {
+            byte[] bytes = signatureString.getBytes(StandardCharsets.UTF_8);
+            String signData=signatureString.replace("\\r", "").replace("\\n", "");
+            signatureString=signData;
             Log.d("Signature", signatureString);
+            Log.d("Bytes",Integer.toString(bytes.length));
         }
         return signatureString;
     }
 
-
-    void onRemoteSignHandler(Object sender, byte[] Hash, byte[] SignedHash) {
-        String otpCode = "";
-        String signPassword = "";
-        String sadValue = "";
-        //byte[] to base64
-        String docHashBase64 = "";
-        try {
-            docHashBase64 = Base64.encodeToString(Hash, Base64.DEFAULT);
-        } catch (Exception e) {
-            Log.d("Error", e.getMessage());
-        }
-        //base64 to byte[]
-        String respHashBase64 = "";
-
-        if (!tanCode.getText().toString().isEmpty()) {
-            otpCode = tanCode.getText().toString();
-        }
-        if (!signPasswd.getText().toString().isEmpty()) {
-            signPassword = signPasswd.getText().toString();
-        }
-        if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
-            //get sad for hash
-            sadValue = GetSadResponse(docHashBase64, otpCode, signPassword);
-        }
-        if (!sadValue.isEmpty()) {
-            try {
-                respHashBase64 = GetSignature(docHashBase64, sadValue);
-            } catch (Exception e) {
-                Log.d("Error", e.getMessage());
-            }
-        }
-        if (!respHashBase64.isEmpty()) {
-            try {
-                SignedHash = Base64.decode(respHashBase64, Base64.DEFAULT);
-            } catch (Exception e) {
-                Log.d("Error", e.getMessage());
-            }
-        }
-    }
 
     //prepare signature
     private void openDocument() {
@@ -693,6 +665,66 @@ public class MainActivity extends AppCompatActivity {
         return "";
     }
 
+    private int certLoaded() {
+        String signPassword = "";
+        int response = 1;
+        if (!signPasswd.getText().toString().isEmpty()) {
+            signPassword = signPasswd.getText().toString();
+        }
+        try {
+            response = m_cert.loadFromFileAuto(selectedCertificatePath, signPassword);
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+        return response;
+    }
+
+    private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
+        m_TrustedCerts.clear();
+        handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
+        handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
+        int k = m_CertValidationLog.indexOfObject(handler);
+        if (k >= 0)
+            m_CertValidationLog.removeAt(k);
+    }
+
+    TSBPDFCertValidatorFinishedEvent.Callback onCertValidatorFinished = new TSBPDFCertValidatorFinishedEvent.Callback() {
+
+        @Override
+        public void tsbpdfCertValidatorFinishedEventCallback(TObject arg0,
+                                                             TElX509CertificateValidator arg1, TElX509Certificate arg2,
+                                                             TSBCertificateValidity arg3, int arg4) {
+            int k = m_CertValidationLog.indexOfObject(arg0);
+            if (k >= 0 && k < m_CertValidationLog.getCount())
+                m_CertValidationLog.setString(k, m_CertValidationLog.getString(k) + "\n" + arg1.getInternalLogger().getLog().getText());
+            else
+                m_CertValidationLog.addObject(arg1.getInternalLogger().getLog().getText(), arg0);
+        }
+    };
+
+    TSBPDFCertValidatorPreparedEvent.Callback onCertValidatorPrepared = new TSBPDFCertValidatorPreparedEvent.Callback() {
+
+        public TElX509CertificateValidator tsbpdfCertValidatorPreparedEventCallback(
+                TObject sender, TElX509CertificateValidator CertValidator,
+                TElX509Certificate Cert) {
+            CertValidator.addTrustedCertificates(m_TrustedCerts);
+            CertValidator.addKnownCertificates(m_LocalRevInfo.getCertificates());
+            CertValidator.addKnownCRLs(m_KnownCRLs);
+            for (int i = 0; i < m_LocalRevInfo.getOCSPResponseCount(); i++) {
+                TElOCSPResponse resp = new TElOCSPResponse();
+                try {
+                    byte[] encodedResp = m_LocalRevInfo.getOCSPResponse(i);
+                    resp.load(encodedResp, 0, encodedResp.length);
+                    CertValidator.addKnownOCSPResponses(resp);
+                } catch (Exception ex) {
+                }
+            }
+            CertValidator.setForceCompleteChainValidationForTrusted(false);
+
+            return CertValidator;
+        }
+    };
+
     TSBPDFRemoteSignEvent.Callback OnRemoteSign = new TSBPDFRemoteSignEvent.Callback() {
         @Override
         public byte[] tsbpdfRemoteSignEventCallback(TObject Sender, byte[] Hash) {
@@ -703,7 +735,9 @@ public class MainActivity extends AppCompatActivity {
             //byte[] to base64
             String docHashBase64 = "";
             try {
-                docHashBase64 = Base64.encodeToString(Hash, Base64.DEFAULT);
+                Log.d("DocHash", Hash.toString());
+                docHashBase64 = Base64.encodeToString(Hash, Base64.NO_WRAP);
+                Log.d("ConvertedHash", docHashBase64);
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
@@ -729,7 +763,8 @@ public class MainActivity extends AppCompatActivity {
             }
             if (!respHashBase64.isEmpty()) {
                 try {
-                    SignedHash = Base64.decode(respHashBase64, Base64.DEFAULT);
+                    SignedHash = Base64.decode(respHashBase64, Base64.NO_WRAP);
+                    //SignedHash = respHashBase64.getBytes(StandardCharsets.UTF_8);
                     return SignedHash;
                 } catch (Exception e) {
                     Log.d("Error", e.getMessage());
@@ -750,19 +785,32 @@ public class MainActivity extends AppCompatActivity {
         HelperClass helperClass = new HelperClass(this);
         filePath = helperClass.getValue(this, FILE_PATH);
         Log.d("Sign_FilePath", filePath);
+        try {
+            openDocument();
+        } catch (Exception e) {
+            Log.d("Error", "No document selected!");
+            helperClass.AlertDialogBuilder("No document selected!", this, "Error");
+        }
 
-        openDocument();
+        if (certLoaded() == 0) {
+            Log.d("Certificate", "Loaded successfully!");
+        }
 
         try {
             int idx = m_CurrDoc.addSignature();
             TElPDFSignature sig = m_CurrDoc.getSignatureEntry(idx);
             sig.setHandler(m_Handler);
+            sig.setInvisible(false);
             m_CertStorage.clear();
+            m_CertStorage.add(m_cert, true);
             m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
             m_Handler.setCustomName("Adobe.PPKMS");
+            m_Handler.setCertStorage(m_CertStorage);
+            PrepareValidation(m_Handler);
+
             m_Handler.setRemoteSigningMode(true);
             m_Handler.setOnRemoteSign(new TSBPDFRemoteSignEvent(OnRemoteSign));
-            m_Handler.setTSPClient(null);
+            m_Handler.setIgnoreChainValidationErrors(true);
             Date date = new Date();
             sig.setSigningTime(date);
 
@@ -772,16 +820,16 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Error", "\"Signature failed!");
             }
 
-        } catch (
-                Exception e) {
+        } catch (Exception e) {
             Log.d("Error", e.getMessage());
         }
 
-/*        String otpCode = "";
+       /* String otpCode = "";
         String signPassword = "";
         String sadValue = "";
         //byte[] to base64
         String docHash = "E3z8VQoHVdzWBfdlxmLEnPVIgYE9ZZkM+XWz6QNK+Ls=";
+        String testHash="nkSljMwVccgkxlI5FqdLrNmVw7o=";
         //base64 to byte[]
         String respHash = "";
 
@@ -822,6 +870,11 @@ public class MainActivity extends AppCompatActivity {
             String response = "";
             JSONObject jsonObject = new JSONObject();
             JSONArray hashesArray = new JSONArray();
+            String hashAlgo_SHA1 = "1.3.14.3.2.26";
+            String signAlgo_RSA_SHA1 = "1.3.14.3.2.29";
+
+            String hashAlgo_SHA256 = "1.2.840.113549.1.1.11";
+            String signAlgo_RSA_SHA256 = "2.16.840.1.101.3.4.2.1";
             try {
                 hashesArray.put(urls[2]);
             } catch (Exception e) {
@@ -829,8 +882,15 @@ public class MainActivity extends AppCompatActivity {
             }
             try {
                 jsonObject.accumulate("credentialID", urls[1]);
-                jsonObject.accumulate("signAlgo", "1.2.840.113549.1.1.11");
-                jsonObject.accumulate("hashAlgo", "2.16.840.1.101.3.4.2.1");
+                //sha256-RSA
+                //jsonObject.accumulate("signAlgo", "1.2.840.113549.1.1.11");
+                //sha256-RSA
+                //jsonObject.accumulate("hashAlgo", "2.16.840.1.101.3.4.2.1");
+                //
+                jsonObject.accumulate("signAlgo", signAlgo_RSA_SHA1);
+                //
+                jsonObject.accumulate("hashAlgo", hashAlgo_SHA1);
+
                 jsonObject.accumulate("signAlgoParams", "");
                 jsonObject.accumulate("SAD", urls[3]);
                 jsonObject.accumulate("hash", hashesArray);
@@ -859,14 +919,15 @@ public class MainActivity extends AppCompatActivity {
                 int httpsResult = conn.getResponseCode();
                 if (httpsResult == HttpsURLConnection.HTTP_OK) {
                     BufferedReader br = new BufferedReader(new InputStreamReader(
-                            conn.getInputStream(), "utf-8"));
+                            conn.getInputStream(), StandardCharsets.UTF_8));
                     String line = null;
                     while ((line = br.readLine()) != null) {
-                        sb.append(line + "\n");
+                        sb.append(line);
                     }
                     br.close();
                 }
-                Log.d("SAD", sb.toString());
+                Log.d("Signature", sb.toString());
+
                 response = sb.toString();
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
@@ -879,6 +940,7 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
+
 
     //GetSad value class
     private class SadClass extends AsyncTask<String, Void, String> {
