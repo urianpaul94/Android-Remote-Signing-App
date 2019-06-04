@@ -18,8 +18,14 @@ import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.text.HtmlCompat;
+import android.telephony.CellInfoGsm;
+import android.telephony.CellSignalStrengthGsm;
+import android.telephony.PhoneStateListener;
+import android.telephony.ServiceState;
+import android.telephony.TelephonyManager;
 import android.text.Html;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
@@ -55,6 +61,12 @@ public class HelperClass {
         }
         return false;
     }
+
+    public boolean isAirplaneModeOn(Context context) {
+        return Settings.System.getInt(context.getContentResolver(),
+                Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
+    }
+
 
     public boolean saveValue(Context context, String type, String value) {
         try {
@@ -223,7 +235,7 @@ public class HelperClass {
 
     public static void verifyStoragePermissions(Activity activity) {
         int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        int readPermission=ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
+        int readPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
 
         if (permission != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -241,14 +253,22 @@ public class HelperClass {
         }
     }
 
-    public void AlertDialogBuilder(String message, final Context context, String title) {
+    public void AlertDialogBuilder(String message, final Context context, String title, boolean... success) {
         final SpannableString str = new SpannableString(message);
         Linkify.addLinks(str, Linkify.WEB_URLS);
 
         TextView textView = new TextView(context);
         textView.setText(title);
         textView.setGravity(Gravity.CENTER);
-        textView.setTextColor(Color.parseColor("#FF0000"));
+        if (success.length <= 0) {
+            textView.setTextColor(Color.parseColor("#FF0000"));
+        } else {
+            if (success[0] == true) {
+                textView.setTextColor(Color.parseColor("#00cc00"));
+            } else {
+                textView.setTextColor(Color.parseColor("#FF0000"));
+            }
+        }
         textView.setTextSize(22);
 
         AlertDialog.Builder newAlert = new AlertDialog.Builder(context);

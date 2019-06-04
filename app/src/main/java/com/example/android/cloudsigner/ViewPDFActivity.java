@@ -37,6 +37,10 @@ public class ViewPDFActivity extends AppCompatActivity {
             if (file.exists()) {
                 pdfView.fromFile(file).load();
             }
+            else {
+                helperClass.AlertDialogBuilder("No pdf file selected! " +
+                        "You must select a pdf file first, to be able to view it!",this,"Error!",false);
+            }
         } catch (Exception e) {
             Log.d("Error", e.getMessage());
         }

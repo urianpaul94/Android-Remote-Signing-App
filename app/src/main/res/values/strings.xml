@@ -14,4 +14,5 @@
     <string name="load_info">Load info</string>
     <string name="sign_password">Sign Password</string>
     <string name="sign">Sign</string>
+    <string name="view_signatures">View Signatures</string>
 </resources>

@@ -2,6 +2,7 @@ package com.example.android.cloudsigner;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -14,6 +15,10 @@ import android.os.Environment;
 import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.telephony.PhoneStateListener;
+import android.telephony.ServiceState;
+import android.telephony.SignalStrength;
+import android.telephony.TelephonyManager;
 import android.util.Base64;
 import android.util.Log;
 import android.util.Xml;
@@ -81,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
     private Button loadInfoButton;
     private Button viewButton;
     private Button authorizeButton;
+    private Button viewSignature;
     private Spinner certSpinner;
     private Button signButton;
     private EditText tanCode;
@@ -111,6 +117,31 @@ public class MainActivity extends AppCompatActivity {
     TElStringList m_CertValidationLog = new TElStringList();
     TElX509Certificate m_cert = new TElX509Certificate();
 
+    String stateMessage = "";
+
+    PhoneStateListener phoneStateListener = new PhoneStateListener() {
+        public void onServiceStateChanged(ServiceState serviceState) {
+            Log.d("State", Integer.toString(serviceState.getState()));
+            int state = serviceState.getState();
+            switch (state) {
+                case ServiceState.STATE_EMERGENCY_ONLY:
+                    stateMessage = "Emergency call only!";
+                case ServiceState.STATE_OUT_OF_SERVICE:
+                    stateMessage = "Out of services!";
+                case ServiceState.STATE_POWER_OFF:
+                    stateMessage = "Airplane mode is on!";
+                case ServiceState.STATE_IN_SERVICE:
+                default: {
+                    break;
+                }
+            }
+        }
+
+        public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+            Log.d("Signal", signalStrength.toString());
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -120,6 +151,12 @@ public class MainActivity extends AppCompatActivity {
         if (intent == null) {
             finish();
         }
+        //Secure BlackBox license key - 30 days.
+        SBUtils.setLicenseKey("4E6D44C2173B71B6C3EB107A72DB0C21F8A6508511DF58B527A4F002C69466DF5A4C6F741AB80E3135506DA5A882" +
+                "ECCB75593C32CEF137607D92C36332C190ACD13D46733B9F832969451AAD26902F4D43E4831526E67AA150F1A62D1FBBDF3B2866D3" +
+                "33293C3C03F1AADD0DE9110F442E1B7F570E71EF755465F94F294CB1595AED9FBDA6D0E4D5D6CAB9D06B730355EE501BD494ABACCE3" +
+                "102474FC724D5F57D8C7AF7C77DF9547E9031084B6C4B492BE7BE8A3F26539D497005F802ADEB5F8D5953995A7594A3A0EE96410A9F" +
+                "02BCD67D9220082ECC2C863956FF80579B52AE31D720BA6EA816CA0A82BFB54773D9CE520746BE11E3E3BEC30BB26C36733C");
         HelperClass helperClass = new HelperClass(this);
         String pdfPath = "";
         try {
@@ -144,9 +181,16 @@ public class MainActivity extends AppCompatActivity {
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
+        viewSignature = (Button) findViewById(R.id.viewSignaturesBtn);
         serialNumbers = new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         helperClass.verifyStoragePermissions(MainActivity.this);
+
+        //listener for signal change.
+        /*TelephonyManager telephonyManager = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
+        telephonyManager.listen(phoneStateListener,PhoneStateListener.LISTEN_SERVICE_STATE |
+                PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);*/
+
         //1. Obtain auth_code.
         Login(authorizeButton);
     }
@@ -200,6 +244,17 @@ public class MainActivity extends AppCompatActivity {
                 });
                 viewButton.setVisibility(View.VISIBLE);
                 authorizeButton.setVisibility(View.INVISIBLE);
+                //verify - if the document has been signed previously.
+                try {
+                    openDocument();
+                    int idx = m_CurrDoc.addSignature();
+                    if (idx > 0) {
+                        viewSignature.setVisibility(View.VISIBLE);
+                    }
+                    CloseCurrentDocument(false);
+                } catch (Exception e) {
+                    Log.d("Error",e.getMessage());
+                }
             }
         } catch (Exception e) {
             Log.d("Error:", e.getMessage());
@@ -409,12 +464,18 @@ public class MainActivity extends AppCompatActivity {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (myClass.InternetConnection() == false) {
-                    myClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
+                //verify services state.
+                if (myClass.isAirplaneModeOn(context)) {
+                    myClass.AlertDialogBuilder("Airplane mode is on!", context, "Services state");
+
+                } else if (myClass.InternetConnection() == false) {
+                    myClass.AlertDialogBuilder("You must ena  ble Internet Connection to be able to sign documents!",
                             context, "Internet Error!");
+
                 } else {
                     startActivity(intent);
                 }
+
             }
         });
     }
@@ -518,7 +579,7 @@ public class MainActivity extends AppCompatActivity {
     //prepare signature
     private void openDocument() {
         HelperClass helperClass = new HelperClass(this);
-        String path = helperClass.getValue(this, "Path");
+        String path = helperClass.getValue(this, FILE_PATH);
         PrepareTemporaryFile(path);
         try {
             m_CurrDoc = new TElPDFDocument();
@@ -740,31 +801,34 @@ public class MainActivity extends AppCompatActivity {
             }
             //base64 to byte[]
             String respHashBase64 = "";
-
-            if (!tanCode.getText().toString().isEmpty()) {
-                otpCode = tanCode.getText().toString();
-            }
-            if (!signPasswd.getText().toString().isEmpty()) {
-                signPassword = signPasswd.getText().toString();
-            }
-            if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
-                //get sad for hash
-                sadValue = GetSadResponse(docHashBase64, otpCode, signPassword);
-            }
-            if (!sadValue.isEmpty()) {
-                try {
-                    respHashBase64 = GetSignature(docHashBase64, sadValue);
-                } catch (Exception e) {
-                    Log.d("Error", e.getMessage());
+            try {
+                if (!tanCode.getText().toString().isEmpty()) {
+                    otpCode = tanCode.getText().toString();
                 }
-            }
-            if (!respHashBase64.isEmpty()) {
-                try {
-                    SignedHash = Base64.decode(respHashBase64, Base64.NO_WRAP);
-                    return SignedHash;
-                } catch (Exception e) {
-                    Log.d("Error", e.getMessage());
+                if (!signPasswd.getText().toString().isEmpty()) {
+                    signPassword = signPasswd.getText().toString();
                 }
+                if (!signPassword.isEmpty() && !otpCode.isEmpty()) {
+                    //get sad for hash
+                    sadValue = GetSadResponse(docHashBase64, otpCode, signPassword);
+                }
+                if (!sadValue.isEmpty()) {
+                    try {
+                        respHashBase64 = GetSignature(docHashBase64, sadValue);
+                    } catch (Exception e) {
+                        Log.d("Error", e.getMessage());
+                    }
+                }
+                if (!respHashBase64.isEmpty()) {
+                    try {
+                        SignedHash = Base64.decode(respHashBase64, Base64.NO_WRAP);
+                        return SignedHash;
+                    } catch (Exception e) {
+                        Log.d("Error", e.getMessage());
+                    }
+                }
+            }catch (Exception e){
+                Log.d("Error",e.getMessage());
             }
             return new byte[0];
         }
@@ -772,53 +836,59 @@ public class MainActivity extends AppCompatActivity {
 
     public void SignDocument(View view) {
         String filePath = "";
-        SBUtils.setLicenseKey("4E6D44C2173B71B6C3EB107A72DB0C21F8A6508511DF58B527A4F002C69466DF5A4C6F741AB80E3135506DA5A882" +
-                "ECCB75593C32CEF137607D92C36332C190ACD13D46733B9F832969451AAD26902F4D43E4831526E67AA150F1A62D1FBBDF3B2866D3" +
-                "33293C3C03F1AADD0DE9110F442E1B7F570E71EF755465F94F294CB1595AED9FBDA6D0E4D5D6CAB9D06B730355EE501BD494ABACCE3" +
-                "102474FC724D5F57D8C7AF7C77DF9547E9031084B6C4B492BE7BE8A3F26539D497005F802ADEB5F8D5953995A7594A3A0EE96410A9F" +
-                "02BCD67D9220082ECC2C863956FF80579B52AE31D720BA6EA816CA0A82BFB54773D9CE520746BE11E3E3BEC30BB26C36733C");
-
         HelperClass helperClass = new HelperClass(this);
-        filePath = helperClass.getValue(this, FILE_PATH);
-        Log.d("Sign_FilePath", filePath);
-        try {
-            openDocument();
-        } catch (Exception e) {
-            Log.d("Error", "No document selected!");
-            helperClass.AlertDialogBuilder("No document selected!", this, "Error");
+        if (tanCode.getText().toString().isEmpty()){
+            helperClass.AlertDialogBuilder("Please fill in the OTP code received in text messages box!",this,"OTP code error");
         }
-
-        if (certLoaded() == 0) {
-            Log.d("Certificate", "Loaded successfully!");
+        else if(signPasswd.getText().toString().isEmpty()){
+            helperClass.AlertDialogBuilder("Please fill in the signing password!",this,"Password error");
         }
-
-        try {
-            int idx = m_CurrDoc.addSignature();
-            TElPDFSignature sig = m_CurrDoc.getSignatureEntry(idx);
-            sig.setHandler(m_Handler);
-            sig.setInvisible(false);
-            m_CertStorage.clear();
-            m_CertStorage.add(m_cert, true);
-            m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
-            m_Handler.setCustomName("Adobe.PPKMS");
-            m_Handler.setCertStorage(m_CertStorage);
-            PrepareValidation(m_Handler);
-
-            m_Handler.setRemoteSigningMode(true);
-            m_Handler.setOnRemoteSign(new TSBPDFRemoteSignEvent(OnRemoteSign));
-            m_Handler.setIgnoreChainValidationErrors(true);
-            Date date = new Date();
-            sig.setSigningTime(date);
-
-            if (CloseCurrentDocument(true))
-                Log.d("Message", "\"Signed document!");
-            else {
-                Log.d("Error", "\"Signature failed!");
+        else if (!helperClass.InternetConnection()) {
+            helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
+                    this, "Internet Error!");
+        } else {
+            filePath = helperClass.getValue(this, FILE_PATH);
+            Log.d("Sign_FilePath", filePath);
+            try {
+                openDocument();
+            } catch (Exception e) {
+                Log.d("Error", "No document selected!");
+                helperClass.AlertDialogBuilder("No document selected!", this, "Error");
             }
 
-        } catch (Exception e) {
-            Log.d("Error", e.getMessage());
-        }
+            if (certLoaded() == 0) {
+                Log.d("Certificate", "Loaded successfully!");
+            }
+
+            try {
+                int idx = m_CurrDoc.addSignature();
+                TElPDFSignature sig = m_CurrDoc.getSignatureEntry(idx);
+                sig.setHandler(m_Handler);
+                sig.setInvisible(false);
+                m_CertStorage.clear();
+                m_CertStorage.add(m_cert, true);
+                m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
+                m_Handler.setCustomName("Adobe.PPKMS");
+                m_Handler.setCertStorage(m_CertStorage);
+                PrepareValidation(m_Handler);
+
+                m_Handler.setRemoteSigningMode(true);
+                m_Handler.setOnRemoteSign(new TSBPDFRemoteSignEvent(OnRemoteSign));
+                m_Handler.setIgnoreChainValidationErrors(true);
+                Date date = new Date();
+                sig.setSigningTime(date);
+
+                if (CloseCurrentDocument(true)) {
+                    Log.d("Message", "\"Signed document!");
+                    helperClass.AlertDialogBuilder("Congratulations! You've successfully signed your pdf!" +
+                            "Go to View Signatures button to see the signature!", this, "Signature successful!", true);
+                } else {
+                    Log.d("Error", "\"Signature failed!");
+                }
+
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
 
        /* String otpCode = "";
         String signPassword = "";
@@ -855,7 +925,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Error", e.getMessage());
             }
         }*/
-
+        }
     }
 
 
