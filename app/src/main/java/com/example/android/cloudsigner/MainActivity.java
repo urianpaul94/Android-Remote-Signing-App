@@ -135,9 +135,6 @@ public class MainActivity extends AppCompatActivity {
             Log.d("Error", e.getMessage());
         }
 
-        String test = "Yfg0i1QfxjUg/NXr72MUBX0Uom891YgspRj54GlzLDuKFkuM28ZNXPm1VgzOFkTy\r\nJ9WIt0Tc/cz2z/YmM0xBYSlesptnIh+qRZhtL565YAU+ad2hvFmT4A2EnqUgC5kO\r\np/AwxBfwHKt5lWP6JmTiMWBk/AK/vJdlECArtBn0lUpGSXgwqyyHWw98zuMF4eGo\r\nZTxfdzNADgTRH0Rt7VoTZ4lW/Dq3uf/X3TOgx9Nnu2Zg8q7LMMz3JzzI2UnkQX8J\r\nO/GnWY4mnWvVT84GTZPWBkj3azMfM7UUbEm+xkSbdj8JAHATL/qOVw+aJ3U5ixz3\r\nDvT2gQoIAGmr72MXctcKbg==";
-        //test
-        Log.d("Test", (test.replaceAll("(\r\n|\r|\n|\n\r)", "<br>")));
 
         loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
@@ -509,10 +506,10 @@ public class MainActivity extends AppCompatActivity {
         }
         if (!signatureString.isEmpty()) {
             byte[] bytes = signatureString.getBytes(StandardCharsets.UTF_8);
-            String signData=signatureString.replace("\\r", "").replace("\\n", "");
-            signatureString=signData;
+            String signData = signatureString.replace("\\r", "").replace("\\n", "");
+            signatureString = signData;
             Log.d("Signature", signatureString);
-            Log.d("Bytes",Integer.toString(bytes.length));
+            Log.d("Bytes", Integer.toString(bytes.length));
         }
         return signatureString;
     }
@@ -764,7 +761,6 @@ public class MainActivity extends AppCompatActivity {
             if (!respHashBase64.isEmpty()) {
                 try {
                     SignedHash = Base64.decode(respHashBase64, Base64.NO_WRAP);
-                    //SignedHash = respHashBase64.getBytes(StandardCharsets.UTF_8);
                     return SignedHash;
                 } catch (Exception e) {
                     Log.d("Error", e.getMessage());
