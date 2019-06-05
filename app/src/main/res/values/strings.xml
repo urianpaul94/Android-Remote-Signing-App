@@ -15,4 +15,6 @@
     <string name="sign_password">Sign Password</string>
     <string name="sign">Sign</string>
     <string name="view_signatures">View Signatures</string>
+    <string name="enter_tan">Enter TAN</string>
+    <string name="show_password">Show Password</string>
 </resources>

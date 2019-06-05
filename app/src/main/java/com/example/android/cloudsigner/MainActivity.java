@@ -15,10 +15,13 @@ import android.os.Environment;
 import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.AppCompatCheckBox;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
+import android.text.method.HideReturnsTransformationMethod;
+import android.text.method.PasswordTransformationMethod;
 import android.util.Base64;
 import android.util.Log;
 import android.util.Xml;
@@ -26,6 +29,8 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
@@ -92,12 +97,14 @@ public class MainActivity extends AppCompatActivity {
     private EditText tanCode;
     private EditText signPasswd;
     private ProgressBar progressBar;
+    private AppCompatCheckBox checkBox;
     private boolean isPdf = false;
     private ArrayList<String> credentialIds;
     private ArrayList<String> certInfo;
     private ArrayList<String> serialNumbers;
     private int selectedCertificateIndex = 0;
     private String selectedCertificatePath = "";
+    private boolean wrongCredentials = false;
 
 
     //signature_
@@ -182,6 +189,7 @@ public class MainActivity extends AppCompatActivity {
         signButton = (Button) findViewById(R.id.signButton);
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         viewSignature = (Button) findViewById(R.id.viewSignaturesBtn);
+        checkBox = (AppCompatCheckBox) findViewById(R.id.checkBox);
         serialNumbers = new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         helperClass.verifyStoragePermissions(MainActivity.this);
@@ -253,7 +261,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     CloseCurrentDocument(false);
                 } catch (Exception e) {
-                    Log.d("Error",e.getMessage());
+                    Log.d("Error", e.getMessage());
                 }
             }
         } catch (Exception e) {
@@ -429,6 +437,8 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("LoadedCertificate", selectedCertificatePath);
                     SendOtp sendOtp = new SendOtp();
                     sendOtp.execute(url, credIds.get(selectedCertificateIndex));
+                    tanCode.setText("");
+                    signPasswd.setText("");
                     signButton.setVisibility(View.VISIBLE);
                 }
 
@@ -507,6 +517,17 @@ public class MainActivity extends AppCompatActivity {
                         setCertInfo(certificatesInfo, credIds);
                         tanCode.setVisibility(View.VISIBLE);
                         signPasswd.setVisibility(View.VISIBLE);
+                        checkBox.setVisibility(View.VISIBLE);
+                        checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                            @Override
+                            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                                if(isChecked){
+                                    signPasswd.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                                }else{
+                                    signPasswd.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                                }
+                            }
+                        });
                     } catch (Exception e) {
                         Log.d("Error", e.getMessage());
                     }
@@ -529,11 +550,19 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         if (!response.isEmpty()) {
-            StringTokenizer stringTokenizer = new StringTokenizer(response, "\":,");
-            while (stringTokenizer.hasMoreTokens()) {
-                String token = stringTokenizer.nextToken();
-                if (token.equals("SAD")) {
-                    sadValue = stringTokenizer.nextToken();
+            if (response.equals("wrong credentials!")) {
+                wrongCredentials = true;
+                HelperClass helperClass = new HelperClass(this);
+                helperClass.AlertDialogBuilder("OTP code or password provided by you do not match. " +
+                        "Please review it. The signature will not be valid!", this, "Wrong credentials!");
+            } else {
+                StringTokenizer stringTokenizer = new StringTokenizer(response, "\":,");
+                while (stringTokenizer.hasMoreTokens()) {
+                    String token = stringTokenizer.nextToken();
+                    if (token.equals("SAD")) {
+                        sadValue = stringTokenizer.nextToken();
+                        wrongCredentials = false;
+                    }
                 }
             }
         }
@@ -827,8 +856,8 @@ public class MainActivity extends AppCompatActivity {
                         Log.d("Error", e.getMessage());
                     }
                 }
-            }catch (Exception e){
-                Log.d("Error",e.getMessage());
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
             }
             return new byte[0];
         }
@@ -837,13 +866,11 @@ public class MainActivity extends AppCompatActivity {
     public void SignDocument(View view) {
         String filePath = "";
         HelperClass helperClass = new HelperClass(this);
-        if (tanCode.getText().toString().isEmpty()){
-            helperClass.AlertDialogBuilder("Please fill in the OTP code received in text messages box!",this,"OTP code error");
-        }
-        else if(signPasswd.getText().toString().isEmpty()){
-            helperClass.AlertDialogBuilder("Please fill in the signing password!",this,"Password error");
-        }
-        else if (!helperClass.InternetConnection()) {
+        if (tanCode.getText().toString().isEmpty()) {
+            helperClass.AlertDialogBuilder("Please fill in the OTP code received in text messages box!", this, "OTP code error");
+        } else if (signPasswd.getText().toString().isEmpty()) {
+            helperClass.AlertDialogBuilder("Please fill in the signing password!", this, "Password error");
+        } else if (!helperClass.InternetConnection()) {
             helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                     this, "Internet Error!");
         } else {
@@ -879,13 +906,17 @@ public class MainActivity extends AppCompatActivity {
                 sig.setSigningTime(date);
 
                 if (CloseCurrentDocument(true)) {
-                    Log.d("Message", "\"Signed document!");
-                    helperClass.AlertDialogBuilder("Congratulations! You've successfully signed your pdf!" +
-                            "Go to View Signatures button to see the signature!", this, "Signature successful!", true);
+                    if (wrongCredentials == false) {
+                        Log.d("Message", "\"Signed document!");
+                        helperClass.AlertDialogBuilder("Congratulations! You've successfully signed your pdf!" +
+                                "Go to View Signatures button to see the signature!", this, "Signature successful!", true);
+                        tanCode.setText("");
+                        signPasswd.setText("");
+                    }
+                    viewSignature.setVisibility(View.VISIBLE);
                 } else {
                     Log.d("Error", "\"Signature failed!");
                 }
-
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
@@ -1059,8 +1090,12 @@ public class MainActivity extends AppCompatActivity {
                     }
                     br.close();
                 }
+
                 Log.d("SAD", sb.toString());
                 response = sb.toString();
+                if (httpsResult == HttpsURLConnection.HTTP_BAD_REQUEST) {
+                    response = "wrong credentials!";
+                }
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }

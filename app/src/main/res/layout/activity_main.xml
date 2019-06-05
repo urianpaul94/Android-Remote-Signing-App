@@ -102,7 +102,7 @@
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/button_loadInfo"
-        app:layout_constraintVertical_bias="0.704" />
+        app:layout_constraintVertical_bias="0.713" />
 
     <Button
         android:id="@+id/button_view"
@@ -155,10 +155,10 @@
         android:id="@+id/enterOtp"
         android:layout_width="124dp"
         android:layout_height="51dp"
-        android:layout_marginStart="28dp"
+        android:layout_marginStart="32dp"
         android:layout_marginTop="8dp"
         android:ems="10"
-        android:hint="Enter TAN"
+        android:hint="@string/enter_tan"
         android:inputType="textPersonName"
         android:textAlignment="center"
         android:textColor="#EDEDED"
@@ -168,14 +168,14 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/certList"
-        app:layout_constraintVertical_bias="0.157" />
+        app:layout_constraintVertical_bias="0.098" />
 
     <EditText
         android:id="@+id/signPasswd"
         android:layout_width="124dp"
         android:layout_height="51dp"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="72dp"
+        android:layout_marginTop="48dp"
         android:layout_marginEnd="16dp"
         android:ems="10"
         android:hint="@string/sign_password"
@@ -190,6 +190,27 @@
         app:layout_constraintStart_toEndOf="@+id/enterOtp"
         app:layout_constraintTop_toBottomOf="@+id/certList" />
 
+    <android.support.v7.widget.AppCompatCheckBox
+        android:id="@+id/checkBox"
+        android:layout_width="99dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:buttonTint="@color/colorWhite"
+        android:text="@string/show_password"
+        android:textAlignment="center"
+        android:textColor="@color/colorWhite"
+        android:textSize="12sp"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toTopOf="@+id/button_view"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/signButton"
+        app:layout_constraintTop_toBottomOf="@+id/signPasswd"
+        app:layout_constraintVertical_bias="0.026" />
+
+
     <Button
         android:id="@+id/signButton"
         android:layout_width="115dp"
@@ -197,9 +218,9 @@
         android:layout_marginStart="8dp"
         android:layout_marginBottom="80dp"
         android:background="@drawable/authorize_button"
+        android:drawableEnd="@drawable/sign"
         android:onClick="SignDocument"
         android:shadowColor="#705C5F"
-        android:drawableEnd="@drawable/sign"
         android:shadowDx="10"
         android:shadowDy="-10"
         android:shadowRadius="5"
