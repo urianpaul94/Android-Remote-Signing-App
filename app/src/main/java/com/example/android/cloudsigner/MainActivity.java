@@ -105,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
     private int selectedCertificateIndex = 0;
     private String selectedCertificatePath = "";
     private boolean wrongCredentials = false;
+    private int hashAlgorithm=0;
 
 
     //signature_
@@ -461,6 +462,11 @@ public class MainActivity extends AppCompatActivity {
 
     public void viewPdf(View view) {
         Intent intent = new Intent(MainActivity.this, ViewPDFActivity.class);
+        startActivity(intent);
+    }
+
+    public void viewSignatures(View view){
+        Intent intent = new Intent(MainActivity.this, SignatureDetailsActivity.class);
         startActivity(intent);
     }
 
@@ -892,6 +898,13 @@ public class MainActivity extends AppCompatActivity {
                 TElPDFSignature sig = m_CurrDoc.getSignatureEntry(idx);
                 sig.setHandler(m_Handler);
                 sig.setInvisible(false);
+                int hashAlg=m_Handler.getHashAlgorithm();
+                //28929 - SHA1
+                //28932 - SHA256
+                if(hashAlg!=28932){
+                    m_Handler.setHashAlgorithm(28932);
+                    hashAlgorithm=28932;
+                }
                 m_CertStorage.clear();
                 m_CertStorage.add(m_cert, true);
                 m_Handler.setPAdESSignatureType(TSBPAdESSignatureType.pastBasic);
@@ -906,7 +919,7 @@ public class MainActivity extends AppCompatActivity {
                 sig.setSigningTime(date);
 
                 if (CloseCurrentDocument(true)) {
-                    if (wrongCredentials == false) {
+                    if (!wrongCredentials) {
                         Log.d("Message", "\"Signed document!");
                         helperClass.AlertDialogBuilder("Congratulations! You've successfully signed your pdf!" +
                                 "Go to View Signatures button to see the signature!", this, "Signature successful!", true);
@@ -979,15 +992,17 @@ public class MainActivity extends AppCompatActivity {
             }
             try {
                 jsonObject.accumulate("credentialID", urls[1]);
-                //sha256-RSA
-                //jsonObject.accumulate("signAlgo", "1.2.840.113549.1.1.11");
-                //sha256-RSA
-                //jsonObject.accumulate("hashAlgo", "2.16.840.1.101.3.4.2.1");
-                //
-                jsonObject.accumulate("signAlgo", signAlgo_RSA_SHA1);
-                //
-                jsonObject.accumulate("hashAlgo", hashAlgo_SHA1);
-
+                //sha256
+                if(hashAlgorithm==28932){
+                    jsonObject.accumulate("signAlgo", "1.2.840.113549.1.1.11");
+                    jsonObject.accumulate("hashAlgo", "2.16.840.1.101.3.4.2.1");
+                }
+                //sha1
+                else {
+                    jsonObject.accumulate("signAlgo", signAlgo_RSA_SHA1);
+                    //
+                    jsonObject.accumulate("hashAlgo", hashAlgo_SHA1);
+                }
                 jsonObject.accumulate("signAlgoParams", "");
                 jsonObject.accumulate("SAD", urls[3]);
                 jsonObject.accumulate("hash", hashesArray);
@@ -1478,7 +1493,7 @@ public class MainActivity extends AppCompatActivity {
     public void getCredentialIds(View view) {
         Context context = this;
         HelperClass helperClass = new HelperClass(this);
-        Intent intent = new Intent(this, ViewPDFActivity.class);
+        //Intent intent = new Intent(this, ViewPDFActivity.class);
         if (helperClass.InternetConnection() == false) {
             helperClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                     context, "Internet Error!");

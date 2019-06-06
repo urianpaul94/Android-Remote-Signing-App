@@ -251,6 +251,7 @@
         android:textColor="#EDEDED"
         android:textSize="15sp"
         android:visibility="invisible"
+        android:onClick="viewSignatures"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/signButton"
         app:layout_constraintHorizontal_bias="0.0"

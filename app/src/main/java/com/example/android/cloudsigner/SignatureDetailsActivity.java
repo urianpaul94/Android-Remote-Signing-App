@@ -1,0 +1,359 @@
+package com.example.android.cloudsigner;
+
+import android.content.Context;
+import android.graphics.Typeface;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Base64;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseExpandableListAdapter;
+import android.widget.Button;
+import android.widget.ExpandableListAdapter;
+import android.widget.ExpandableListView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import SecureBlackbox.Base.SBPKICommon;
+import SecureBlackbox.Base.TElFileStream;
+import SecureBlackbox.Base.TElMemoryCRLStorage;
+import SecureBlackbox.Base.TElMemoryCertStorage;
+import SecureBlackbox.Base.TElStringList;
+import SecureBlackbox.Base.TElX509Certificate;
+import SecureBlackbox.Base.TSBCMSAdvancedSignatureValidity;
+import SecureBlackbox.HTTPClient.TElHTTPSClient;
+import SecureBlackbox.HTTPClient.TElHTTPTSPClient;
+import SecureBlackbox.PDF.TElPDFDocument;
+import SecureBlackbox.PDF.TElPDFPublicKeyRevocationInfo;
+import SecureBlackbox.PDF.TElPDFSignature;
+import SecureBlackbox.PKIPDF.TElPDFAdvancedPublicKeySecurityHandler;
+import SecureBlackbox.PKIPDF.TSBPAdESSignatureType;
+
+public class SignatureDetailsActivity extends AppCompatActivity {
+
+    public static final String FILE_PATH = "Path";
+    private TElPDFDocument m_CurrDoc = null;
+    private String m_CurrOrigFile = "";
+    private String m_CurrTempFile = "";
+    private TElFileStream m_CurrStream = null;
+    TElPDFPublicKeyRevocationInfo m_DocRevInfo = new TElPDFPublicKeyRevocationInfo();
+    TElPDFPublicKeyRevocationInfo m_LocalRevInfo = new TElPDFPublicKeyRevocationInfo();
+    TElMemoryCertStorage m_TrustedCerts = new TElMemoryCertStorage();
+    TElMemoryCRLStorage m_KnownCRLs = new TElMemoryCRLStorage();
+    TElPDFAdvancedPublicKeySecurityHandler m_Handler = null;
+    TElMemoryCertStorage m_CertStorage = new TElMemoryCertStorage();
+    TElHTTPTSPClient m_TspClient = new TElHTTPTSPClient();
+    TElHTTPSClient m_HttpClient = new TElHTTPSClient();
+    TElStringList m_CertValidationLog = new TElStringList();
+    TElX509Certificate m_cert = new TElX509Certificate();
+
+    HashMap<String, List<String>> expandableListDetail;
+    List<String> expandableListTitle;
+    ExpandableListView expandableListView;
+    ExpandableListAdapter expandableListAdapter;
+    TextView signaturesNumber;
+    Button closeBtn;
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_signature_details);
+        int width, height;
+        DisplayMetrics dm = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(dm);
+        width = dm.widthPixels;
+        height = dm.heightPixels;
+        getWindow().setLayout((int) (width * .95), (int) (height * .85));
+        expandableListDetail = new HashMap<>();
+        //signaturesNumber = findViewById(R.id.signaturesNumber);
+        //closeBtn=findViewById(R.id.closeBtn);
+        /*closeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });*/
+        try {
+            viewSignatures();
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+        expandableListView = findViewById(R.id.expandableListView);
+        expandableListTitle = new ArrayList<>(expandableListDetail.keySet());
+
+        expandableListAdapter = new CustomExpandableListAdapter(this, expandableListTitle, expandableListDetail);
+        expandableListView.setAdapter(expandableListAdapter);
+        expandableListView.setOnGroupExpandListener(new ExpandableListView.OnGroupExpandListener() {
+            @Override
+            public void onGroupExpand(int groupPosition) {
+                Toast.makeText(getApplicationContext(),
+                        expandableListTitle.get(groupPosition) + " List Expanded.",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+        expandableListView.setOnGroupCollapseListener(new ExpandableListView.OnGroupCollapseListener() {
+
+            @Override
+            public void onGroupCollapse(int groupPosition) {
+                Toast.makeText(getApplicationContext(),
+                        expandableListTitle.get(groupPosition) + " List Collapsed.",
+                        Toast.LENGTH_SHORT).show();
+
+            }
+        });
+
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if ((keyCode == KeyEvent.KEYCODE_BACK)) {
+            finish();
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    private void viewSignatures() {
+        HelperClass helperClass = new HelperClass(this);
+        String pdfPath = helperClass.getValue(this, FILE_PATH);
+        try {
+            openDocument(pdfPath);
+            int sigNumber = m_CurrDoc.getSignatureCount();
+            //signaturesNumber.setText("This document contains " + sigNumber + " signatures!");
+            for (int i = 0; i < sigNumber; i++) {
+                TElPDFSignature sig = m_CurrDoc.getSignatureEntry(i);
+                RefreshSignatureInfo(sig, false);
+            }
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+    }
+
+    private void RefreshSignatureInfo(TElPDFSignature sig, boolean revalidate) {
+        TElPDFAdvancedPublicKeySecurityHandler handler = null;
+        List<String> detailsList = new ArrayList<>();
+        if (sig.getHandler() instanceof TElPDFAdvancedPublicKeySecurityHandler) {
+            handler = (TElPDFAdvancedPublicKeySecurityHandler) sig.getHandler();
+            if (handler.getPAdESSignatureType().equals(TSBPAdESSignatureType.pastBasic)) {
+                detailsList.add("Signature type: Basic");
+            }
+            detailsList.add("Signature name: " + sig.getSignatureName());
+            String issuer = "Issuer: " + handler.getCMS().getSignature(0).getSigner().getIssuer().saveToDNString();
+            detailsList.add(issuer);
+            String serialNumber = "serialNumber: " + byteArrayToHex((handler.getCMS().getSignature(0).getSigner().getSerialNumber()));
+            detailsList.add(serialNumber);
+
+            String signTime = "Signing time: " + sig.getSigningTime().toString();
+            detailsList.add(signTime);
+
+            String timeStamp = "";
+            if (handler.getTimestampCount() > 0) {
+                timeStamp = "Timestamp: " + "Yes; " + handler.getTimestamp(0).getTime().toString();
+            } else {
+                timeStamp = "Timestamp: " + "No";
+            }
+            detailsList.add(timeStamp);
+            String signatureValidity = "";
+            TSBCMSAdvancedSignatureValidity validity = handler.getValidationDetails();
+            if (validity.equals(TSBCMSAdvancedSignatureValidity.casvValid)) {
+                signatureValidity = "Valid";
+            }
+
+
+            detailsList.add("Signature validity: " + signatureValidity);
+            expandableListDetail.put(sig.getSignatureName(), detailsList);
+        }
+
+    }
+
+    public static String byteArrayToHex(byte[] a) {
+        StringBuilder sb = new StringBuilder(a.length * 2);
+        for (byte b : a)
+            sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+
+    private void openDocument(String path) {
+        PrepareTemporaryFile(path);
+        try {
+            m_CurrDoc = new TElPDFDocument();
+            try {
+                m_CurrDoc.setOwnActivatedSecurityHandlers(true);
+                m_CurrDoc.open(m_CurrStream);
+                ExtractRevInfo();
+            } catch (Exception exc) {
+                m_CurrDoc = null;
+                throw exc;
+            }
+        } catch (Exception ex) {
+            DeleteTemporaryFile(false);
+            throw ex;
+        }
+    }
+
+    private void DeleteTemporaryFile(boolean saveChanges) {
+        if (m_CurrStream != null) {
+            m_CurrStream.Destroy();
+            m_CurrStream = null;
+        }
+        if (saveChanges) {
+            try {
+                copyFile(m_CurrTempFile, m_CurrOrigFile, true);
+            } catch (IOException e) {
+                Log.d("Error", e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        new File(m_CurrTempFile).delete();
+        m_CurrTempFile = "";
+        m_CurrOrigFile = "";
+    }
+
+    private void PrepareTemporaryFile(String srcFile) {
+        String TempPath = getCacheDir().toString() + "/wantedFile.pdf";
+        try {
+            copyFile(srcFile, TempPath, true);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.d("Error", e.getMessage());
+        }
+        m_CurrStream = new TElFileStream(TempPath, "rw", true);
+        m_CurrOrigFile = srcFile;
+        m_CurrTempFile = TempPath;
+    }
+
+    private void copyFile(String src, String dest, boolean overwrite) throws IOException {
+        RandomAccessFile inputFile = new RandomAccessFile(src, "r");
+        RandomAccessFile outputFile = new RandomAccessFile(dest, "rw");
+        byte[] buf = new byte[1024];
+        int r;
+
+        if (overwrite)
+            outputFile.setLength(0);
+
+        do {
+            r = inputFile.read(buf);
+            if (r > 0)
+                outputFile.write(buf, 0, r);
+        } while (r > 0);
+
+        inputFile.close();
+        outputFile.close();
+    }
+
+    private void ExtractRevInfo() {
+        if (m_CurrDoc == null) {
+            return;
+        }
+        m_DocRevInfo.clear();
+        boolean DSSAdded = false;
+        for (int i = 0; i < m_CurrDoc.getSignatureCount(); i++) {
+            if (m_CurrDoc.getSignatureEntry(i).getHandler() instanceof TElPDFAdvancedPublicKeySecurityHandler) {
+                TElPDFAdvancedPublicKeySecurityHandler handler = (TElPDFAdvancedPublicKeySecurityHandler) m_CurrDoc.getSignatureEntry(i).getHandler();
+                if (!DSSAdded) {
+                    m_DocRevInfo.assign(handler.getDSSRevocationInfo(), false);
+                    DSSAdded = true;
+                }
+                m_DocRevInfo.assign(handler.getRevocationInfo(), false);
+            }
+        }
+    }
+}
+
+class CustomExpandableListAdapter extends BaseExpandableListAdapter {
+
+    private Context context;
+    private List<String> expandableListTitle;
+    private HashMap<String, List<String>> expandableListDetail;
+
+    public CustomExpandableListAdapter(Context context, List<String> expandableListTitle,
+                                       HashMap<String, List<String>> expandableListDetail) {
+        this.context = context;
+        this.expandableListTitle = expandableListTitle;
+        this.expandableListDetail = expandableListDetail;
+    }
+
+    @Override
+    public Object getChild(int listPosition, int expandedListPosition) {
+        return this.expandableListDetail.get(this.expandableListTitle.get(listPosition))
+                .get(expandedListPosition);
+    }
+
+    @Override
+    public long getChildId(int listPosition, int expandedListPosition) {
+        return expandedListPosition;
+    }
+
+    @Override
+    public View getChildView(int listPosition, final int expandedListPosition,
+                             boolean isLastChild, View convertView, ViewGroup parent) {
+        final String expandedListText = (String) getChild(listPosition, expandedListPosition);
+        if (convertView == null) {
+            LayoutInflater layoutInflater = (LayoutInflater) this.context
+                    .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            convertView = layoutInflater.inflate(R.layout.list_item, null);
+        }
+        TextView expandedListTextView = (TextView) convertView
+                .findViewById(R.id.expandedListItem);
+        expandedListTextView.setText(expandedListText);
+        return convertView;
+    }
+
+    @Override
+    public int getChildrenCount(int listPosition) {
+        return this.expandableListDetail.get(this.expandableListTitle.get(listPosition))
+                .size();
+    }
+
+    @Override
+    public Object getGroup(int listPosition) {
+        return this.expandableListTitle.get(listPosition);
+    }
+
+    @Override
+    public int getGroupCount() {
+        return this.expandableListTitle.size();
+    }
+
+    @Override
+    public long getGroupId(int listPosition) {
+        return listPosition;
+    }
+
+    @Override
+    public View getGroupView(int listPosition, boolean isExpanded,
+                             View convertView, ViewGroup parent) {
+        String listTitle = (String) getGroup(listPosition);
+        if (convertView == null) {
+            LayoutInflater layoutInflater = (LayoutInflater) this.context.
+                    getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            convertView = layoutInflater.inflate(R.layout.list_group, null);
+        }
+        TextView listTitleTextView = (TextView) convertView
+                .findViewById(R.id.listTitle);
+        listTitleTextView.setTypeface(null, Typeface.BOLD);
+        listTitleTextView.setText(listTitle);
+        return convertView;
+    }
+
+    @Override
+    public boolean hasStableIds() {
+        return false;
+    }
+
+    @Override
+    public boolean isChildSelectable(int listPosition, int expandedListPosition) {
+        return true;
+    }
+}
