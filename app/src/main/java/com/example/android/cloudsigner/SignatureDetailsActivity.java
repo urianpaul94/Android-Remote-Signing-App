@@ -15,13 +15,17 @@ import android.widget.BaseExpandableListAdapter;
 import android.widget.Button;
 import android.widget.ExpandableListAdapter;
 import android.widget.ExpandableListView;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import org.freepascal.rtl.TObject;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -29,9 +33,12 @@ import SecureBlackbox.Base.SBPKICommon;
 import SecureBlackbox.Base.TElFileStream;
 import SecureBlackbox.Base.TElMemoryCRLStorage;
 import SecureBlackbox.Base.TElMemoryCertStorage;
+import SecureBlackbox.Base.TElOCSPResponse;
 import SecureBlackbox.Base.TElStringList;
 import SecureBlackbox.Base.TElX509Certificate;
+import SecureBlackbox.Base.TElX509CertificateValidator;
 import SecureBlackbox.Base.TSBCMSAdvancedSignatureValidity;
+import SecureBlackbox.Base.TSBCertificateValidity;
 import SecureBlackbox.HTTPClient.TElHTTPSClient;
 import SecureBlackbox.HTTPClient.TElHTTPTSPClient;
 import SecureBlackbox.PDF.TElPDFDocument;
@@ -39,6 +46,8 @@ import SecureBlackbox.PDF.TElPDFPublicKeyRevocationInfo;
 import SecureBlackbox.PDF.TElPDFSignature;
 import SecureBlackbox.PKIPDF.TElPDFAdvancedPublicKeySecurityHandler;
 import SecureBlackbox.PKIPDF.TSBPAdESSignatureType;
+import SecureBlackbox.PKIPDF.TSBPDFCertValidatorFinishedEvent;
+import SecureBlackbox.PKIPDF.TSBPDFCertValidatorPreparedEvent;
 
 public class SignatureDetailsActivity extends AppCompatActivity {
 
@@ -63,7 +72,7 @@ public class SignatureDetailsActivity extends AppCompatActivity {
     ExpandableListView expandableListView;
     ExpandableListAdapter expandableListAdapter;
     TextView signaturesNumber;
-    Button closeBtn;
+    ImageButton closeBtn;
 
 
     @Override
@@ -77,14 +86,14 @@ public class SignatureDetailsActivity extends AppCompatActivity {
         height = dm.heightPixels;
         getWindow().setLayout((int) (width * .95), (int) (height * .85));
         expandableListDetail = new HashMap<>();
-        //signaturesNumber = findViewById(R.id.signaturesNumber);
-        //closeBtn=findViewById(R.id.closeBtn);
-        /*closeBtn.setOnClickListener(new View.OnClickListener() {
+        signaturesNumber = findViewById(R.id.signNo);
+        closeBtn=findViewById(R.id.closeButton);
+        closeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 finish();
             }
-        });*/
+        });
         try {
             viewSignatures();
         } catch (Exception e) {
@@ -130,7 +139,7 @@ public class SignatureDetailsActivity extends AppCompatActivity {
         try {
             openDocument(pdfPath);
             int sigNumber = m_CurrDoc.getSignatureCount();
-            //signaturesNumber.setText("This document contains " + sigNumber + " signatures!");
+            signaturesNumber.setText("This PDF has " + sigNumber + " signatures!");
             for (int i = 0; i < sigNumber; i++) {
                 TElPDFSignature sig = m_CurrDoc.getSignatureEntry(i);
                 RefreshSignatureInfo(sig, false);
@@ -166,16 +175,125 @@ public class SignatureDetailsActivity extends AppCompatActivity {
             detailsList.add(timeStamp);
             String signatureValidity = "";
             TSBCMSAdvancedSignatureValidity validity = handler.getValidationDetails();
+            String tryValidate="";
+            if(validity.equals(TSBCMSAdvancedSignatureValidity.casvUnknown)){
+                try{
+                    PrepareValidation(handler);
+                }
+                catch (Exception e){
+                    Log.d("Error",e.getMessage());
+                }
+                try{
+                    handler.setValidationMoment(new Date());
+                    sig.validate();
+                    if(!sig.isDocumentSigned()){
+                        tryValidate = "Signature does not cover the entire document (signed revision)";
+                    }
+                }
+                catch (Exception e){
+                    Log.d("Error",e.getMessage());
+                }
+            }
             if (validity.equals(TSBCMSAdvancedSignatureValidity.casvValid)) {
                 signatureValidity = "Valid";
             }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvSignatureCorrupted)){
+                signatureValidity = "Signature corrupted";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvSignerNotFound)){
+                signatureValidity = "Signer not found";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvIncompleteChain)){
+                signatureValidity = "Incomplete chain";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvBadCountersignature)){
+                signatureValidity = "Bad counters signature";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvBadTimestamp)){
+                signatureValidity = "Bad timestamp";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvCertificateExpired)){
+                signatureValidity = "Certificate expired";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvCertificateRevoked)){
+                signatureValidity = "Certificate revoked";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvCertificateCorrupted)){
+                signatureValidity = "Certificate corrupted";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvUntrustedCA)){
+                signatureValidity = "Untrusted CA";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvRevInfoNotFound)){
+                signatureValidity = "Revocation info not fount";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvTimestampInfoNotFound)){
+                signatureValidity = "Timestamp info not found";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvFailure)){
+                signatureValidity = "Failure";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvCertificateMalformed)){
+                signatureValidity = "Certificate malformed";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvUnknown)){
+                signatureValidity = "Unknown";
+            }
+            else if(validity.equals(TSBCMSAdvancedSignatureValidity.casvChainValidationFailed)){
+                signatureValidity = "Chain validation failed";
+            }
 
-
-            detailsList.add("Signature validity: " + signatureValidity);
+            detailsList.add("Signature validity: " + signatureValidity+" -- "+tryValidate);
             expandableListDetail.put(sig.getSignatureName(), detailsList);
         }
 
     }
+
+    private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
+        m_TrustedCerts.clear();
+        handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
+        handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
+        int k = m_CertValidationLog.indexOfObject(handler);
+        if (k >= 0)
+            m_CertValidationLog.removeAt(k);
+    }
+
+    TSBPDFCertValidatorFinishedEvent.Callback onCertValidatorFinished = new TSBPDFCertValidatorFinishedEvent.Callback() {
+
+        @Override
+        public void tsbpdfCertValidatorFinishedEventCallback(TObject arg0,
+                                                             TElX509CertificateValidator arg1, TElX509Certificate arg2,
+                                                             TSBCertificateValidity arg3, int arg4) {
+            int k = m_CertValidationLog.indexOfObject(arg0);
+            if (k >= 0 && k < m_CertValidationLog.getCount())
+                m_CertValidationLog.setString(k, m_CertValidationLog.getString(k) + "\n" + arg1.getInternalLogger().getLog().getText());
+            else
+                m_CertValidationLog.addObject(arg1.getInternalLogger().getLog().getText(), arg0);
+        }
+    };
+
+    TSBPDFCertValidatorPreparedEvent.Callback onCertValidatorPrepared = new TSBPDFCertValidatorPreparedEvent.Callback() {
+
+        public TElX509CertificateValidator tsbpdfCertValidatorPreparedEventCallback(
+                TObject sender, TElX509CertificateValidator CertValidator,
+                TElX509Certificate Cert) {
+            CertValidator.addTrustedCertificates(m_TrustedCerts);
+            CertValidator.addKnownCertificates(m_LocalRevInfo.getCertificates());
+            CertValidator.addKnownCRLs(m_KnownCRLs);
+            for (int i = 0; i < m_LocalRevInfo.getOCSPResponseCount(); i++) {
+                TElOCSPResponse resp = new TElOCSPResponse();
+                try {
+                    byte[] encodedResp = m_LocalRevInfo.getOCSPResponse(i);
+                    resp.load(encodedResp, 0, encodedResp.length);
+                    CertValidator.addKnownOCSPResponses(resp);
+                } catch (Exception ex) {
+                }
+            }
+            CertValidator.setForceCompleteChainValidationForTrusted(false);
+
+            return CertValidator;
+        }
+    };
 
     public static String byteArrayToHex(byte[] a) {
         StringBuilder sb = new StringBuilder(a.length * 2);

@@ -105,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
     private int selectedCertificateIndex = 0;
     private String selectedCertificatePath = "";
     private boolean wrongCredentials = false;
+    private X509Certificate signingCertificate;
     private int hashAlgorithm=0;
 
 
@@ -774,6 +775,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
         m_TrustedCerts.clear();
+
         handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
         handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
         int k = m_CertValidationLog.indexOfObject(handler);
@@ -1086,10 +1088,14 @@ public class MainActivity extends AppCompatActivity {
                 conn.setDoOutput(true);
                 conn.setDoInput(true);
 
-                DataOutputStream os = new DataOutputStream(conn.getOutputStream());
-                os.writeBytes(jsonObject.toString());
-                os.flush();
-                os.close();
+                try {
+                    DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                    os.writeBytes(jsonObject.toString());
+                    os.flush();
+                    os.close();
+                }catch (Exception e){
+                    Log.d("Error",e.getMessage());
+                }
 
                 Log.i("Conn_status_SAD", String.valueOf(conn.getResponseCode()));
                 Log.i("Conn_message_SAD", conn.getResponseMessage());

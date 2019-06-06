@@ -11,5 +11,7 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:paddingTop="10dp"
-        android:paddingBottom="10dp" />
+        android:paddingBottom="10dp"
+        android:hapticFeedbackEnabled="true"
+        />
 </LinearLayout>
