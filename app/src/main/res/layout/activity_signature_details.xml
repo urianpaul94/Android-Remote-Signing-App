@@ -31,7 +31,7 @@
     <ExpandableListView
         android:id="@+id/expandableListView"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="680dp"
 
         android:layout_below="@id/closeButton"
         android:layout_marginBottom="0dp"

@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
     private int selectedCertificateIndex = 0;
     private String selectedCertificatePath = "";
     private boolean wrongCredentials = false;
-    private X509Certificate signingCertificate;
+    private TElX509Certificate signingCertificate;
     private int hashAlgorithm=0;
 
 
@@ -775,7 +775,21 @@ public class MainActivity extends AppCompatActivity {
 
     private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
         m_TrustedCerts.clear();
-
+        String signPassword = "";
+        int load=1;
+        if (!signPasswd.getText().toString().isEmpty()) {
+            signPassword = signPasswd.getText().toString();
+        }
+        try{
+             load=signingCertificate.loadFromFileAuto(selectedCertificatePath,signPassword);
+        }
+        catch (Exception e){
+            Log.d("Error",e.getMessage());
+        }
+        if(load==0)
+        {
+            m_TrustedCerts.add(signingCertificate,true);
+        }
         handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
         handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
         int k = m_CertValidationLog.indexOfObject(handler);

@@ -2,6 +2,7 @@ package com.example.android.cloudsigner;
 
 import android.content.Context;
 import android.graphics.Typeface;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Base64;
@@ -22,8 +23,12 @@ import android.widget.Toast;
 import org.freepascal.rtl.TObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -66,6 +71,11 @@ public class SignatureDetailsActivity extends AppCompatActivity {
     TElHTTPSClient m_HttpClient = new TElHTTPSClient();
     TElStringList m_CertValidationLog = new TElStringList();
     TElX509Certificate m_cert = new TElX509Certificate();
+    TElX509Certificate root_cert = new TElX509Certificate();
+    TElX509Certificate intermediate_cert = new TElX509Certificate();
+    String certificatePath="";
+    String rootPath="";
+    String intermediatePath="";
 
     HashMap<String, List<String>> expandableListDetail;
     List<String> expandableListTitle;
@@ -79,12 +89,12 @@ public class SignatureDetailsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signature_details);
-        int width, height;
+      /*  int width, height;
         DisplayMetrics dm = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(dm);
         width = dm.widthPixels;
         height = dm.heightPixels;
-        getWindow().setLayout((int) (width * .95), (int) (height * .85));
+        getWindow().setLayout((int) (width * .95), (int) (height * .85));*/
         expandableListDetail = new HashMap<>();
         signaturesNumber = findViewById(R.id.signNo);
         closeBtn=findViewById(R.id.closeButton);
@@ -148,6 +158,42 @@ public class SignatureDetailsActivity extends AppCompatActivity {
             Log.d("Error", e.getMessage());
         }
     }
+    private String loadCertificate(String serialNumber) {
+
+        String externalPath=Environment.getExternalStorageDirectory().toString();
+        String path = externalPath + "/Download/Private";
+        rootPath=externalPath+"/Download/Private/Root/root.crt";
+        intermediatePath=externalPath+"/Download/Private/Root/intermediate.crt";
+
+        Log.d("Files", "Path: " + path);
+        File directory = new File(path);
+        File[] files = directory.listFiles();
+        Log.d("Files", "Size: " + files.length);
+        for (int i = 0; i < files.length; i++) {
+            Log.d("Files", "FileName:" + files[i].getName());
+            String location = path + "/" + files[i].getName();
+            try {
+
+                File file = new File(location);
+                InputStream is = new FileInputStream(file);
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                X509Certificate certificate = (X509Certificate) cf.generateCertificate(is);
+                Log.d("Certificate", certificate.getSigAlgName());
+                Log.d("SerialNumber", certificate.getSerialNumber().toString());
+
+                if (serialNumber.equals(certificate.getSerialNumber().toString())) {
+                    return location;
+                }
+
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+        }
+        return "";
+    }
+    private static long hexToLong(String hex) {
+        return Long.parseLong(hex, 16);
+    }
 
     private void RefreshSignatureInfo(TElPDFSignature sig, boolean revalidate) {
         TElPDFAdvancedPublicKeySecurityHandler handler = null;
@@ -160,8 +206,18 @@ public class SignatureDetailsActivity extends AppCompatActivity {
             detailsList.add("Signature name: " + sig.getSignatureName());
             String issuer = "Issuer: " + handler.getCMS().getSignature(0).getSigner().getIssuer().saveToDNString();
             detailsList.add(issuer);
+            String sN=byteArrayToHex((handler.getCMS().getSignature(0).getSigner().getSerialNumber()));
             String serialNumber = "serialNumber: " + byteArrayToHex((handler.getCMS().getSignature(0).getSigner().getSerialNumber()));
             detailsList.add(serialNumber);
+
+            try{
+                long serial = hexToLong(sN);
+                certificatePath=loadCertificate(Long.toString(serial));
+            }
+            catch (Exception e){
+                Log.d("Error",e.getMessage());
+            }
+
 
             String signTime = "Signing time: " + sig.getSigningTime().toString();
             detailsList.add(signTime);
@@ -251,6 +307,16 @@ public class SignatureDetailsActivity extends AppCompatActivity {
 
     private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
         m_TrustedCerts.clear();
+        try {
+            root_cert.loadFromFileAuto(rootPath,"");
+            intermediate_cert.loadFromFileAuto(intermediatePath,"");
+            m_TrustedCerts.add(root_cert,false);
+            m_TrustedCerts.add(intermediate_cert,false);
+        }
+        catch (Exception e)
+        {
+            Log.d("Error",e.getMessage());
+        }
         handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
         handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
         int k = m_CertValidationLog.indexOfObject(handler);
