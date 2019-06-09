@@ -36,6 +36,8 @@ import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
+
 import org.freepascal.rtl.TObject;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -76,12 +78,13 @@ import javax.net.ssl.HttpsURLConnection;
 import SecureBlackbox.Base.*;
 import SecureBlackbox.HTTPClient.*;
 import SecureBlackbox.PDF.*;
+import SecureBlackbox.PKI.TElCertificateRevocationListEx;
 import SecureBlackbox.PKIPDF.*;
-import SecureBlackbox.LDAP.*;
 
 public class MainActivity extends AppCompatActivity {
     public static final String FILE_PATH = "Path";
     private static final String AUTH_CODE = "AuthCode";
+    private static final int LOCAL_CERTIFICATE=0;
     private static final String BASE_URL = "https://msign-test.transsped.ro/csc/v0/";
     private String authCode = "";
     private String authToken = "";
@@ -92,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
     private Button viewButton;
     private Button authorizeButton;
     private Button viewSignature;
+    private Button testBtn;
     private Spinner certSpinner;
     private Button signButton;
     private EditText tanCode;
@@ -106,7 +110,9 @@ public class MainActivity extends AppCompatActivity {
     private String selectedCertificatePath = "";
     private boolean wrongCredentials = false;
     private TElX509Certificate signingCertificate;
-    private int hashAlgorithm=0;
+    private int hashAlgorithm = 0;
+    private String oneTimeCertificate="";
+    private String oneTimeCertificatePath="";
 
 
     //signature_
@@ -125,6 +131,14 @@ public class MainActivity extends AppCompatActivity {
     TElHTTPSClient m_HttpClient = new TElHTTPSClient();
     TElStringList m_CertValidationLog = new TElStringList();
     TElX509Certificate m_cert = new TElX509Certificate();
+
+    TElX509Certificate root_cert = new TElX509Certificate();
+    TElX509Certificate intermediate_cert = new TElX509Certificate();
+    TElCertificateRevocationListEx cert_crl = new TElCertificateRevocationListEx();
+
+    String rootPath = "";
+    String intermediatePath = "";
+    String crlPath = "";
 
     String stateMessage = "";
 
@@ -192,6 +206,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         viewSignature = (Button) findViewById(R.id.viewSignaturesBtn);
         checkBox = (AppCompatCheckBox) findViewById(R.id.checkBox);
+        testBtn=(Button)findViewById(R.id.buttonTest);
         serialNumbers = new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         helperClass.verifyStoragePermissions(MainActivity.this);
@@ -305,7 +320,50 @@ public class MainActivity extends AppCompatActivity {
         }
         if (!authCode.equals("")) {
             loadInfoButton.setVisibility(View.VISIBLE);
+            testBtn.setVisibility(View.VISIBLE);
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode==LOCAL_CERTIFICATE){
+            try {
+                ArrayList<String> details=new ArrayList<>();
+                details = data.getStringArrayListExtra("selectedDetails");
+                oneTimeCertificate=details.get(0);
+                oneTimeCertificatePath=details.get(1);
+                final String url = BASE_URL + "credentials/sendOTP";
+                if(!oneTimeCertificate.isEmpty()){
+                    SendOtp sendOtp=new SendOtp();
+                    sendOtp.execute(url,oneTimeCertificate);
+                    signButton.setVisibility(View.VISIBLE);
+                    tanCode.setVisibility(View.VISIBLE);
+                    signPasswd.setVisibility(View.VISIBLE);
+                    checkBox.setVisibility(View.VISIBLE);
+                    checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                        @Override
+                        public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                            if (isChecked) {
+                                signPasswd.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
+                            } else {
+                                signPasswd.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                            }
+                        }
+                    });
+                }
+            }catch (Exception e){
+                Log.d("Error",e.getMessage());
+            }
+        }
+    }
+
+    public void startConfiguration(View view){
+        Intent intent=new Intent(MainActivity.this,ConfigurationActivity.class);
+        if(!authToken.isEmpty()){
+            intent.putExtra("AuthToken",authToken);
+        }
+        startActivityForResult(intent,LOCAL_CERTIFICATE);
     }
 
     @Override
@@ -466,7 +524,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    public void viewSignatures(View view){
+    public void viewSignatures(View view) {
         Intent intent = new Intent(MainActivity.this, SignatureDetailsActivity.class);
         startActivity(intent);
     }
@@ -490,6 +548,7 @@ public class MainActivity extends AppCompatActivity {
                             context, "Internet Error!");
 
                 } else {
+                    //startActivity(new Intent(context, ConfigurationActivity.class));
                     startActivity(intent);
                 }
 
@@ -525,16 +584,6 @@ public class MainActivity extends AppCompatActivity {
                         tanCode.setVisibility(View.VISIBLE);
                         signPasswd.setVisibility(View.VISIBLE);
                         checkBox.setVisibility(View.VISIBLE);
-                        checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                            @Override
-                            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                                if(isChecked){
-                                    signPasswd.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
-                                }else{
-                                    signPasswd.setTransformationMethod(PasswordTransformationMethod.getInstance());
-                                }
-                            }
-                        });
                     } catch (Exception e) {
                         Log.d("Error", e.getMessage());
                     }
@@ -550,18 +599,28 @@ public class MainActivity extends AppCompatActivity {
         String url = BASE_URL + "credentials/authorize";
         SadClass sadClass = new SadClass();
         try {
-            response = sadClass.execute(url, credentialIds.get(selectedCertificateIndex), hash, signPassword, otpCode).get();
+            if(!oneTimeCertificate.isEmpty()){
+                response = sadClass.execute(url, oneTimeCertificate, hash, signPassword, otpCode).get();
+            }
+            else
+            {
+                response = sadClass.execute(url, credentialIds.get(selectedCertificateIndex), hash, signPassword, otpCode).get();
+            }
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         if (!response.isEmpty()) {
-            if (response.equals("wrong credentials!")) {
+            HelperClass helperClass = new HelperClass(this);
+            if (response.equals("invalid_otp")) {
                 wrongCredentials = true;
-                HelperClass helperClass = new HelperClass(this);
-                helperClass.AlertDialogBuilder("OTP code or password provided by you do not match. " +
-                        "Please review it. The signature will not be valid!", this, "Wrong credentials!");
+                helperClass.AlertDialogBuilder("The OTP code provided by you does not match. " +
+                        "Please review it. The signature will not be valid!", this, "Wrong OTP!");
+            } else if (response.equals("invalid_pin")) {
+                wrongCredentials = true;
+                helperClass.AlertDialogBuilder("The password provided by you does not match. " +
+                        "Please review it. The signature will not be valid!", this, "Wrong Password!");
             } else {
                 StringTokenizer stringTokenizer = new StringTokenizer(response, "\":,");
                 while (stringTokenizer.hasMoreTokens()) {
@@ -582,8 +641,11 @@ public class MainActivity extends AppCompatActivity {
         String url = BASE_URL + "signatures/signHash";
         String formatSignature = "";
         SignClass signClass = new SignClass();
+
         try {
-            response = signClass.execute(url, credentialIds.get(selectedCertificateIndex), hash, sadResponse).get();
+            if(!oneTimeCertificate.isEmpty()) {
+                response = signClass.execute(url, oneTimeCertificate, hash, sadResponse).get();
+            }
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -623,7 +685,6 @@ public class MainActivity extends AppCompatActivity {
                 m_CurrDoc.setOwnActivatedSecurityHandlers(true);
                 m_CurrDoc.open(m_CurrStream);
                 ExtractRevInfo();
-                //RefreshView();
             } catch (Exception exc) {
                 m_CurrDoc = null;
                 throw exc;
@@ -702,12 +763,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void RefreshView() {
-        //RefreshDocumentInfo();
-        //RefreshSignaturesInfo();
-        //RefreshRevInfo();
-    }
-
     private boolean CloseCurrentDocument(boolean saveChanges) {
         boolean res = true;
         try {
@@ -728,6 +783,9 @@ public class MainActivity extends AppCompatActivity {
         return res;
     }
 
+    //load certificate to app.
+
+    //deprecated.
     private String loadCertificate(String serialNumber) {
 
         String path = Environment.getExternalStorageDirectory().toString() + "/Download/Private";
@@ -766,7 +824,7 @@ public class MainActivity extends AppCompatActivity {
             signPassword = signPasswd.getText().toString();
         }
         try {
-            response = m_cert.loadFromFileAuto(selectedCertificatePath, signPassword);
+            response = m_cert.loadFromFileAuto(oneTimeCertificatePath, signPassword);
         } catch (Exception e) {
             Log.d("Error", e.getMessage());
         }
@@ -776,19 +834,17 @@ public class MainActivity extends AppCompatActivity {
     private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
         m_TrustedCerts.clear();
         String signPassword = "";
-        int load=1;
+        int load = 1;
         if (!signPasswd.getText().toString().isEmpty()) {
             signPassword = signPasswd.getText().toString();
         }
-        try{
-             load=signingCertificate.loadFromFileAuto(selectedCertificatePath,signPassword);
+        try {
+            load = signingCertificate.loadFromFileAuto(selectedCertificatePath, signPassword);
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
         }
-        catch (Exception e){
-            Log.d("Error",e.getMessage());
-        }
-        if(load==0)
-        {
-            m_TrustedCerts.add(signingCertificate,true);
+        if (load == 0) {
+            m_TrustedCerts.add(signingCertificate, true);
         }
         handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
         handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
@@ -796,6 +852,7 @@ public class MainActivity extends AppCompatActivity {
         if (k >= 0)
             m_CertValidationLog.removeAt(k);
     }
+
 
     TSBPDFCertValidatorFinishedEvent.Callback onCertValidatorFinished = new TSBPDFCertValidatorFinishedEvent.Callback() {
 
@@ -904,7 +961,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Error", "No document selected!");
                 helperClass.AlertDialogBuilder("No document selected!", this, "Error");
             }
-
             if (certLoaded() == 0) {
                 Log.d("Certificate", "Loaded successfully!");
             }
@@ -912,14 +968,19 @@ public class MainActivity extends AppCompatActivity {
             try {
                 int idx = m_CurrDoc.addSignature();
                 TElPDFSignature sig = m_CurrDoc.getSignatureEntry(idx);
+                if (idx > 0) {
+                    String sigLoc = sig.getLocation();
+                    Log.d("SigLocation", sigLoc);
+                }
+                sig.setAuthorName("Cloud Signer - Mobile");
                 sig.setHandler(m_Handler);
                 sig.setInvisible(false);
-                int hashAlg=m_Handler.getHashAlgorithm();
+                int hashAlg = m_Handler.getHashAlgorithm();
                 //28929 - SHA1
                 //28932 - SHA256
-                if(hashAlg!=28932){
+                if (hashAlg != 28932) {
                     m_Handler.setHashAlgorithm(28932);
-                    hashAlgorithm=28932;
+                    hashAlgorithm = 28932;
                 }
                 m_CertStorage.clear();
                 m_CertStorage.add(m_cert, true);
@@ -1009,7 +1070,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 jsonObject.accumulate("credentialID", urls[1]);
                 //sha256
-                if(hashAlgorithm==28932){
+                if (hashAlgorithm == 28932) {
                     jsonObject.accumulate("signAlgo", "1.2.840.113549.1.1.11");
                     jsonObject.accumulate("hashAlgo", "2.16.840.1.101.3.4.2.1");
                 }
@@ -1076,6 +1137,7 @@ public class MainActivity extends AppCompatActivity {
         protected String doInBackground(String... urls) {
 
             String response = "";
+            String errorCode = "";
             JSONObject jsonObject = new JSONObject();
             JSONArray jsonArray = new JSONArray();
             try {
@@ -1107,8 +1169,8 @@ public class MainActivity extends AppCompatActivity {
                     os.writeBytes(jsonObject.toString());
                     os.flush();
                     os.close();
-                }catch (Exception e){
-                    Log.d("Error",e.getMessage());
+                } catch (Exception e) {
+                    Log.d("Error", e.getMessage());
                 }
 
                 Log.i("Conn_status_SAD", String.valueOf(conn.getResponseCode()));
@@ -1124,13 +1186,25 @@ public class MainActivity extends AppCompatActivity {
                         sb.append(line + "\n");
                     }
                     br.close();
+                    response=sb.toString();
+                } else if (httpsResult == HttpsURLConnection.HTTP_BAD_REQUEST) {
+                    try {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(
+                                conn.getErrorStream(), "utf-8"));
+                        String line = null;
+                        while ((line = br.readLine()) != null) {
+                            sb.append(line + "\n");
+                        }
+                        br.close();
+                        Gson gson = new Gson();
+                        ErrorCode errorCode1 = gson.fromJson(sb.toString(), ErrorCode.class);
+                        Log.d("ErCode", errorCode1.error);
+                        return errorCode1.error;
+                    } catch (Exception e) {
+                        Log.d("Error", e.getMessage());
+                    }
                 }
-
                 Log.d("SAD", sb.toString());
-                response = sb.toString();
-                if (httpsResult == HttpsURLConnection.HTTP_BAD_REQUEST) {
-                    response = "wrong credentials!";
-                }
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
@@ -1143,6 +1217,7 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
+
 
     //SendOTP class
     private class SendOtp extends AsyncTask<String, Void, Boolean> {
@@ -1429,6 +1504,12 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+    }
+
+    //JSON Classes
+    public class ErrorCode {
+        String error;
+        String errorDescription;
     }
 
 

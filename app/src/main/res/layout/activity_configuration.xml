@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/background"
+    tools:context=".ConfigurationActivity">
+
+    <TextView
+        android:id="@+id/select_crt"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_marginTop="40dp"
+        android:textSize="20sp"
+        android:layout_alignParentTop="true"
+        android:layout_alignBottom="@id/select_crt"
+        android:textColor="@color/colorWhite"
+        android:layout_centerHorizontal="true"
+        android:text="@string/select_crt"
+        android:textStyle="bold"
+        />
+
+    <Spinner
+        android:id="@+id/certList11"
+        android:layout_width="200dp"
+        android:layout_height="50dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="85dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:textAlignment="center"
+        android:visibility="visible"
+        android:layout_centerHorizontal="true"
+        android:hapticFeedbackEnabled="true"
+        android:background="@drawable/gradient_color"
+        style="@android:style/Widget.Spinner" />
+
+    <TextView
+        android:id="@+id/set_default"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_alignTop="@id/certList11"
+        android:layout_marginTop="130sp"
+        android:layout_marginStart="135sp"
+        android:textSize="20sp"
+        android:textColor="@color/colorWhite"
+        android:text="@string/set_certificate_as_default"
+        android:textStyle="bold"
+        />
+    <CheckBox
+        android:id="@+id/checkBox1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@id/certList11"
+        android:layout_marginTop="130sp"
+        android:layout_marginStart="240sp"
+        />
+    <Button
+        android:id="@+id/setDefault"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="350sp"
+        android:layout_marginStart="70sp"
+        android:text="@string/set_default"
+        android:layout_centerHorizontal="false"
+        android:textColor="@color/colorWhite"
+        android:background="@drawable/gradient_color"
+        android:onClick="setAsDefault"
+        />
+    <Button
+        android:id="@+id/cancelDefault"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="350sp"
+        android:text="Cancel"
+        android:layout_centerHorizontal="false"
+        android:layout_marginStart="220sp"
+        android:textColor="@color/colorWhite"
+        android:background="@drawable/gradient_color"
+        android:onClick="cancelDefCertificate"
+        />
+
+</RelativeLayout>

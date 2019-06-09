@@ -18,4 +18,7 @@
     <string name="enter_tan">Enter TAN</string>
     <string name="show_password">Show Password</string>
     <string name="close">Close</string>
+    <string name="set_certificate_as_default">Default</string>
+    <string name="select_crt">Select certificate</string>
+    <string name="set_default">Save</string>
 </resources>

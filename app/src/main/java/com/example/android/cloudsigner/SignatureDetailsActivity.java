@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import SecureBlackbox.Base.SBPKICommon;
+import SecureBlackbox.Base.TElAbstractCRL;
 import SecureBlackbox.Base.TElFileStream;
 import SecureBlackbox.Base.TElMemoryCRLStorage;
 import SecureBlackbox.Base.TElMemoryCertStorage;
@@ -49,6 +50,7 @@ import SecureBlackbox.HTTPClient.TElHTTPTSPClient;
 import SecureBlackbox.PDF.TElPDFDocument;
 import SecureBlackbox.PDF.TElPDFPublicKeyRevocationInfo;
 import SecureBlackbox.PDF.TElPDFSignature;
+import SecureBlackbox.PKI.TElCertificateRevocationListEx;
 import SecureBlackbox.PKIPDF.TElPDFAdvancedPublicKeySecurityHandler;
 import SecureBlackbox.PKIPDF.TSBPAdESSignatureType;
 import SecureBlackbox.PKIPDF.TSBPDFCertValidatorFinishedEvent;
@@ -73,9 +75,12 @@ public class SignatureDetailsActivity extends AppCompatActivity {
     TElX509Certificate m_cert = new TElX509Certificate();
     TElX509Certificate root_cert = new TElX509Certificate();
     TElX509Certificate intermediate_cert = new TElX509Certificate();
+    TElCertificateRevocationListEx cert_crl=new TElCertificateRevocationListEx();
+    //TElAbstractCRL cert_crl=new TElAbstractCRL();
     String certificatePath="";
     String rootPath="";
     String intermediatePath="";
+    String crlPath="";
 
     HashMap<String, List<String>> expandableListDetail;
     List<String> expandableListTitle;
@@ -164,6 +169,7 @@ public class SignatureDetailsActivity extends AppCompatActivity {
         String path = externalPath + "/Download/Private";
         rootPath=externalPath+"/Download/Private/Root/root.crt";
         intermediatePath=externalPath+"/Download/Private/Root/intermediate.crt";
+        crlPath=externalPath+"/Download/Private/Crl/mobile.crl";
 
         Log.d("Files", "Path: " + path);
         File directory = new File(path);
@@ -200,6 +206,9 @@ public class SignatureDetailsActivity extends AppCompatActivity {
         List<String> detailsList = new ArrayList<>();
         if (sig.getHandler() instanceof TElPDFAdvancedPublicKeySecurityHandler) {
             handler = (TElPDFAdvancedPublicKeySecurityHandler) sig.getHandler();
+            int test=handler.getHashAlgorithm();
+            String sigLoc=sig.getLocation();
+            Log.d("sigLoc",sigLoc);
             if (handler.getPAdESSignatureType().equals(TSBPAdESSignatureType.pastBasic)) {
                 detailsList.add("Signature type: Basic");
             }
@@ -307,6 +316,7 @@ public class SignatureDetailsActivity extends AppCompatActivity {
 
     private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
         m_TrustedCerts.clear();
+        m_KnownCRLs.clear();
         try {
             root_cert.loadFromFileAuto(rootPath,"");
             intermediate_cert.loadFromFileAuto(intermediatePath,"");
@@ -315,6 +325,23 @@ public class SignatureDetailsActivity extends AppCompatActivity {
         }
         catch (Exception e)
         {
+            Log.d("Error",e.getMessage());
+        }
+        try{
+            //FileInputStream f = new FileInputStream(crlPath);
+            TElFileStream fileStream=new TElFileStream(crlPath,0);
+            try
+            {
+                int r = cert_crl.loadFromStream(fileStream,(int)fileStream.getLength());
+                Log.d("R",Integer.toString(r));
+            }
+            finally
+            {
+                fileStream.close();
+            }
+
+            m_KnownCRLs.add(cert_crl);
+        }catch (Exception e){
             Log.d("Error",e.getMessage());
         }
         handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
