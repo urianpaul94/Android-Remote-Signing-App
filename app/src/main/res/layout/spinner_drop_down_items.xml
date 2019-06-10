@@ -8,5 +8,5 @@
     android:ellipsize="marquee"
     android:drawableStart="@drawable/certif"
     android:drawableEnd="@drawable/selected_crt"
-    android:textSize="18sp"
+    android:textSize="15sp"
     android:textColor="#000000"/>

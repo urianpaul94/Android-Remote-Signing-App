@@ -30,7 +30,7 @@
         app:layout_constraintHorizontal_bias="0.508"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.835" />
+        app:layout_constraintVertical_bias="0.79" />
 
     <TextView
         android:id="@+id/text_datetime"
@@ -38,9 +38,9 @@
         android:layout_height="67dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="60dp"
         android:drawableBottom="@drawable/calendar"
-        android:text="TextView"
+        android:text=""
         android:textAlignment="center"
         android:textColor="@android:color/darker_gray"
         android:textSize="18sp"
@@ -70,12 +70,12 @@
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginBottom="428dp"
+        android:layout_marginBottom="8dp"
         android:background="@drawable/authorize_button"
-        android:drawableEnd="@drawable/get_certif"
+        android:drawableEnd="@drawable/config_1"
+        android:onClick="startConfiguration"
         android:shadowColor="#000000"
         android:shadowDx="10"
-        android:onClick="startConfiguration"
         android:shadowDy="-10"
         android:shadowRadius="5"
         android:text="@string/configuration"
@@ -85,10 +85,10 @@
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.529"
+        app:layout_constraintHorizontal_bias="0.52"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView3"
-        app:layout_constraintVertical_bias="0.0" />
+        app:layout_constraintVertical_bias="0.029" />
 
     <ProgressBar
         android:id="@+id/progress_bar"
@@ -127,37 +127,17 @@
         android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toEndOf="@+id/signButton"
-        app:layout_constraintTop_toBottomOf="@+id/signPasswd"
-        app:layout_constraintVertical_bias="0.679" />
-
-    <Spinner
-        android:id="@+id/certList"
-        android:layout_width="177dp"
-        android:layout_height="56dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:textAlignment="center"
-        android:visibility="invisible"
-        android:hapticFeedbackEnabled="true"
-        android:tooltipText="@string/select_certificate"
-        android:background="@drawable/gradient_color"
-        style="@android:style/Widget.Spinner"
-        app:layout_constraintBottom_toTopOf="@+id/button_authorize"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.522"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button_loadInfo"
-        app:layout_constraintVertical_bias="0.184" />
+        app:layout_constraintTop_toBottomOf="@+id/signButton"
+        app:layout_constraintVertical_bias="0.291" />
 
     <EditText
         android:id="@+id/enterOtp"
         android:layout_width="124dp"
         android:layout_height="51dp"
-        android:layout_marginStart="32dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="128dp"
         android:ems="10"
         android:hint="@string/enter_tan"
         android:inputType="textPersonName"
@@ -166,17 +146,15 @@
         android:textColorHint="@color/colorGray"
         android:textSize="14sp"
         android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/certList"
-        app:layout_constraintVertical_bias="0.098" />
+        app:layout_constraintTop_toBottomOf="@+id/button_loadInfo" />
 
     <EditText
         android:id="@+id/signPasswd"
         android:layout_width="124dp"
         android:layout_height="51dp"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="48dp"
+        android:layout_marginTop="128dp"
         android:layout_marginEnd="16dp"
         android:ems="10"
         android:hint="@string/sign_password"
@@ -189,7 +167,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toEndOf="@+id/enterOtp"
-        app:layout_constraintTop_toBottomOf="@+id/certList" />
+        app:layout_constraintTop_toBottomOf="@+id/button_loadInfo" />
 
     <android.support.v7.widget.AppCompatCheckBox
         android:id="@+id/checkBox"
@@ -217,6 +195,7 @@
         android:layout_width="115dp"
         android:layout_height="52dp"
         android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
         android:layout_marginBottom="80dp"
         android:background="@drawable/authorize_button"
         android:drawableEnd="@drawable/sign"
@@ -232,7 +211,10 @@
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/button_authorize"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintHorizontal_bias="0.486"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/enterOtp"
+        app:layout_constraintVertical_bias="0.655" />
 
     <Button
         android:id="@+id/viewSignaturesBtn"
@@ -243,6 +225,7 @@
         android:layout_marginEnd="8dp"
         android:background="@drawable/authorize_button"
         android:drawableEnd="@drawable/open_pdf"
+        android:onClick="viewSignatures"
         android:shadowColor="#000000"
         android:shadowDx="10"
         android:shadowDy="-10"
@@ -252,12 +235,28 @@
         android:textColor="#EDEDED"
         android:textSize="15sp"
         android:visibility="invisible"
-        android:onClick="viewSignatures"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/signButton"
-        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintEnd_toStartOf="@+id/button_view"
+        app:layout_constraintHorizontal_bias="0.211"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/enterOtp"
-        app:layout_constraintVertical_bias="0.374" />
+        app:layout_constraintTop_toBottomOf="@+id/signButton"
+        app:layout_constraintVertical_bias="0.127" />
+
+    <TextView
+        android:id="@+id/copyright"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:drawableStart="@drawable/copyright"
+        android:text="@string/copyright"
+        android:textColor="@color/colorGray"
+        android:textSize="18sp"
+        android:textStyle="italic"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/text_datetime" />
 
 </android.support.constraint.ConstraintLayout>

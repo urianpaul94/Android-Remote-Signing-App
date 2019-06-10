@@ -22,4 +22,6 @@
     <string name="select_crt">Select certificate</string>
     <string name="set_default">Save</string>
     <string name="configuration">Configuration</string>
+    <string name="cancel">Cancel</string>
+    <string name="copyright">Paul Danut Urian @2019</string>
 </resources>

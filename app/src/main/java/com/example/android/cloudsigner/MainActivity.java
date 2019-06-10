@@ -209,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
         loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
         authorizeButton = (Button) findViewById(R.id.button_authorize);
-        certSpinner = (Spinner) findViewById(R.id.certList);
+        //certSpinner = (Spinner) findViewById(R.id.certList);
         tanCode = (EditText) findViewById(R.id.enterOtp);
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);

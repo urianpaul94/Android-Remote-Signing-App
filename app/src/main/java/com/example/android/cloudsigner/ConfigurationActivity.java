@@ -2,6 +2,7 @@ package com.example.android.cloudsigner;
 
 import android.content.Context;
 import android.content.Intent;
+import android.icu.text.SimpleDateFormat;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
@@ -15,6 +16,7 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.google.gson.Gson;
 
@@ -34,6 +36,8 @@ import java.net.URL;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.StringTokenizer;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -66,6 +70,7 @@ public class ConfigurationActivity extends AppCompatActivity {
         setContentView(R.layout.activity_configuration);
         certSpinner = findViewById(R.id.certList11);
         checkBox = findViewById(R.id.checkBox1);
+        SetDateAndTime();
         try {
             Intent intent = getIntent();
             authToken = intent.getStringExtra("AuthToken");
@@ -152,6 +157,13 @@ public class ConfigurationActivity extends AppCompatActivity {
             setResult(LOCAL_CERTIFICATE, intent);
             finish();
         }
+    }
+    public void SetDateAndTime() {
+        Date currentTime = Calendar.getInstance().getTime();
+        TextView date = (TextView) findViewById(R.id.time);
+        SimpleDateFormat newDate = new SimpleDateFormat("dd/MM/yyyy, EEEE");
+        String myDate = newDate.format(currentTime);
+        date.setText(myDate);
     }
 
     public void cancelDefCertificate(View view) {
