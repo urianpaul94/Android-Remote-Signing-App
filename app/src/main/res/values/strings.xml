@@ -21,4 +21,5 @@
     <string name="set_certificate_as_default">Default</string>
     <string name="select_crt">Select certificate</string>
     <string name="set_default">Save</string>
+    <string name="configuration">Configuration</string>
 </resources>

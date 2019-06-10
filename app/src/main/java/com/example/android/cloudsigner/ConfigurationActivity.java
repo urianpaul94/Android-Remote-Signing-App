@@ -173,8 +173,8 @@ public class ConfigurationActivity extends AppCompatActivity {
         String path = Environment.getExternalStorageDirectory().toString() + "/Download/Private/";
         String location = "";
         try {
-            location = path + crtFileName + ".cer";
-            FileOutputStream file = openFileOutput(location, MODE_PRIVATE);
+            location = path + crtFileName.replace(" ","") + ".cer";
+            FileOutputStream file = new FileOutputStream(new File(location));
             OutputStreamWriter writer = new OutputStreamWriter(file);
             writer.write(crt);
             writer.close();
