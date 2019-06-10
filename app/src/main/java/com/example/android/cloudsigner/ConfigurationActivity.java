@@ -48,6 +48,7 @@ public class ConfigurationActivity extends AppCompatActivity {
     private static final String SAVED_ALIAS = "Saved_alias";
     private static final String SAVED_PATH = "Crt_path";
     private static final int LOCAL_CERTIFICATE = 0;
+    private static final int GLOBAL_CERTIFICATE = 1;
     private static final String BASE_URL = "https://msign-test.transsped.ro/csc/v0/";
     private int selectedAliasIndex = 0;
     private String selectedAliasCrt = "";
@@ -135,6 +136,12 @@ public class ConfigurationActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
+            Intent intent=new Intent();
+            ArrayList<String> newArray=new ArrayList<>();
+            newArray.add(selectedCertificateID);
+            newArray.add(selectedCertificatePath);
+            intent.putExtra("selectedDetails",newArray);
+            setResult(GLOBAL_CERTIFICATE,intent);
             finish();
         } else {
             Intent intent = new Intent();

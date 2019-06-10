@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
     public static final String FILE_PATH = "Path";
     private static final String AUTH_CODE = "AuthCode";
     private static final int LOCAL_CERTIFICATE = 0;
+    private static final int GLOBAL_CERTIFICATE = 1;
     private static final String BASE_URL = "https://msign-test.transsped.ro/csc/v0/";
     private String authCode = "";
     private String authToken = "";
@@ -121,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String SAVED_CRT = "Saved_crt";
     private static final String SAVED_ALIAS = "Saved_alias";
     private static final String SAVED_PATH = "Crt_path";
+    private CertificateForSign certificateForSign = new CertificateForSign();
 
 
     //signature_
@@ -318,6 +320,11 @@ public class MainActivity extends AppCompatActivity {
                                         if (!savedCertificate.isEmpty() && !savedCertificatePath.equals("Not found!")) {
                                             try {
                                                 final String url = BASE_URL + "credentials/sendOTP";
+                                                //save default certificate to certificate for sign class.
+                                                certificateForSign.isOneTime = false;
+                                                certificateForSign.certificateID = savedCertificate;
+                                                certificateForSign.certificatePath = savedCertificatePath;
+
                                                 SendOtp sendOtp = new SendOtp();
                                                 sendOtp.execute(url, savedCertificate, authToken);
                                                 tanCode.setVisibility(View.VISIBLE);
@@ -355,14 +362,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == LOCAL_CERTIFICATE) {
+        final String url = BASE_URL + "credentials/sendOTP";
+        if (resultCode == LOCAL_CERTIFICATE) {
             try {
                 ArrayList<String> details = new ArrayList<>();
                 details = data.getStringArrayListExtra("selectedDetails");
                 oneTimeCertificate = details.get(0);
                 oneTimeCertificatePath = details.get(1);
-                final String url = BASE_URL + "credentials/sendOTP";
+
                 if (!oneTimeCertificate.isEmpty()) {
+                    //save one time certificate to certificate for sign class.
+                    certificateForSign.isOneTime = true;
+                    certificateForSign.certificateID = oneTimeCertificate;
+                    certificateForSign.certificatePath = oneTimeCertificatePath;
+
                     SendOtp sendOtp = new SendOtp();
                     sendOtp.execute(url, oneTimeCertificate, authToken);
                     signButton.setVisibility(View.VISIBLE);
@@ -373,6 +386,19 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
+        } else if (resultCode == GLOBAL_CERTIFICATE) {
+            ArrayList<String> details = new ArrayList<>();
+            details = data.getStringArrayListExtra("selectedDetails");
+            certificateForSign.isOneTime = false;
+            certificateForSign.certificateID = details.get(0);
+            certificateForSign.certificatePath = details.get(1);
+
+            SendOtp sendOtp = new SendOtp();
+            sendOtp.execute(url, certificateForSign.certificateID, authToken);
+            signButton.setVisibility(View.VISIBLE);
+            tanCode.setVisibility(View.VISIBLE);
+            signPasswd.setVisibility(View.VISIBLE);
+            checkBox.setVisibility(View.VISIBLE);
         }
     }
 
@@ -459,11 +485,20 @@ public class MainActivity extends AppCompatActivity {
         String url = BASE_URL + "credentials/authorize";
         SadClass sadClass = new SadClass();
         try {
-            if (!oneTimeCertificate.isEmpty()) {
+            if (certificateForSign.isOneTime) {
+                if (!certificateForSign.certificateID.isEmpty() && !certificateForSign.certificatePath.equals("Not found!")) {
+                    response = sadClass.execute(url, certificateForSign.certificateID, hash, signPassword, otpCode).get();
+                }
+            } else {
+                if (!certificateForSign.certificateID.isEmpty() && !certificateForSign.certificatePath.equals("Not found!")) {
+                    response = sadClass.execute(url, certificateForSign.certificateID, hash, signPassword, otpCode).get();
+                }
+            }
+        /*    if (!oneTimeCertificate.isEmpty()) {
                 response = sadClass.execute(url, oneTimeCertificate, hash, signPassword, otpCode).get();
             } else {
                 response = sadClass.execute(url, savedCertificate, hash, signPassword, otpCode).get();
-            }
+            }*/
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -494,11 +529,20 @@ public class MainActivity extends AppCompatActivity {
         String url = BASE_URL + "signatures/signHash";
         SignClass signClass = new SignClass();
         try {
-            if (!oneTimeCertificate.isEmpty()) {
+            if (certificateForSign.isOneTime) {
+                if (!certificateForSign.certificateID.isEmpty() && !certificateForSign.certificatePath.equals("Not found!")) {
+                    signList = signClass.execute(url, certificateForSign.certificateID, hash, sadResponse).get();
+                }
+            } else {
+                if (!certificateForSign.certificateID.isEmpty() && !certificateForSign.certificatePath.equals("Not found!")) {
+                    signList = signClass.execute(url, certificateForSign.certificateID, hash, sadResponse).get();
+                }
+            }
+          /*  if (!oneTimeCertificate.isEmpty()) {
                 signList = signClass.execute(url, oneTimeCertificate, hash, sadResponse).get();
             } else if (!savedCertificate.isEmpty()) {
 
-            }
+            }*/
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -636,11 +680,19 @@ public class MainActivity extends AppCompatActivity {
             signPassword = signPasswd.getText().toString();
         }
         try {
-            if (!savedCertificate.isEmpty() && !savedCertificatePath.equals("Not found!")) {
+            if (certificateForSign.isOneTime && !certificateForSign.certificateID.isEmpty() &&
+                    !certificateForSign.certificatePath.equals("Not found!") && !certificateForSign.certificatePath.isEmpty()) {
+                response = m_cert.loadFromFileAuto(certificateForSign.certificatePath, signPassword);
+            } else if (!certificateForSign.isOneTime && !certificateForSign.certificateID.isEmpty() &&
+                    !certificateForSign.certificatePath.equals("Not found!") && !certificateForSign.certificatePath.isEmpty()) {
+                response = m_cert.loadFromFileAuto(certificateForSign.certificatePath, signPassword);
+            }
+
+            /*   if (!savedCertificate.isEmpty() && !savedCertificatePath.equals("Not found!")) {
                 response = m_cert.loadFromFileAuto(savedCertificatePath, signPassword);
             } else if (!oneTimeCertificate.isEmpty() && !oneTimeCertificatePath.isEmpty()) {
-                response = m_cert.loadFromFileAuto(oneTimeCertificatePath, signPassword);
-            }
+                //response = m_cert.loadFromFileAuto(oneTimeCertificatePath, signPassword);
+            }*/
         } catch (Exception e) {
             Log.d("Error", e.getMessage());
         }
@@ -1241,6 +1293,19 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(CredentialsInfo result) {
 
+        }
+    }
+
+    //Class for certificates
+    public class CertificateForSign {
+        public String certificatePath;
+        public String certificateID;
+        public boolean isOneTime;
+
+        CertificateForSign() {
+            this.certificateID = "";
+            this.certificatePath = "";
+            this.isOneTime = false;
         }
     }
 
