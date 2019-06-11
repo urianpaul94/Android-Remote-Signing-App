@@ -3,13 +3,16 @@ package com.example.android.cloudsigner;
 import android.Manifest;
 import android.app.Activity;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.TimeZone;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -19,6 +22,7 @@ import android.support.v7.widget.AppCompatCheckBox;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
+import android.telephony.SmsMessage;
 import android.telephony.TelephonyManager;
 import android.text.method.HideReturnsTransformationMethod;
 import android.text.method.PasswordTransformationMethod;
@@ -35,6 +39,7 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 
@@ -149,6 +154,7 @@ public class MainActivity extends AppCompatActivity {
     String rootPath = "";
     String intermediatePath = "";
     String crlPath = "";
+    public static final String pdu_type = "pdus";
 
     String stateMessage = "";
 
@@ -172,6 +178,40 @@ public class MainActivity extends AppCompatActivity {
 
         public void onSignalStrengthsChanged(SignalStrength signalStrength) {
             Log.d("Signal", signalStrength.toString());
+        }
+    };
+
+    //create broadcast receiver to auto complete tan code from sms.
+    private BroadcastReceiver otpReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Get the SMS message.
+            Bundle bundle = intent.getExtras();
+            SmsMessage[] msgs;
+            String format = bundle.getString("format");
+            // Retrieve the SMS message received.
+            Object[] pdus = (Object[]) bundle.get(pdu_type);
+            if (pdus != null) {
+                msgs = new SmsMessage[pdus.length];
+                for (int i = 0; i < msgs.length; i++) {
+                    msgs[i] = SmsMessage.createFromPdu((byte[]) pdus[i], format);
+                    if (msgs[i].getDisplayOriginatingAddress().equals("1867")) {
+                        int len = msgs[i].getMessageBody().length();
+                        if (len == 58) {
+                            String otp = "";
+                            StringTokenizer str = new StringTokenizer(msgs[i].getDisplayMessageBody(), " :");
+                            while (str.hasMoreTokens()) {
+                                String line = str.nextToken();
+                                if (line.equals("Tancode")) {
+                                    otp = str.nextToken();
+                                }
+                            }
+                            tanCode = findViewById(R.id.enterOtp);
+                            tanCode.setText(otp);
+                        }
+                    }
+                }
+            }
         }
     };
 
@@ -209,14 +249,12 @@ public class MainActivity extends AppCompatActivity {
         loadInfoButton = (Button) findViewById(R.id.button_loadInfo);
         viewButton = (Button) findViewById(R.id.button_view);
         authorizeButton = (Button) findViewById(R.id.button_authorize);
-        //certSpinner = (Spinner) findViewById(R.id.certList);
         tanCode = (EditText) findViewById(R.id.enterOtp);
         signPasswd = (EditText) findViewById(R.id.signPasswd);
         signButton = (Button) findViewById(R.id.signButton);
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
         viewSignature = (Button) findViewById(R.id.viewSignaturesBtn);
         checkBox = (AppCompatCheckBox) findViewById(R.id.checkBox);
-        //testBtn = (Button) findViewById(R.id.buttonTest);
         serialNumbers = new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         helperClass.verifyStoragePermissions(MainActivity.this);
@@ -229,6 +267,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        //unregister receiver for otp-sms
+        try {
+            unregisterReceiver(otpReceiver);
+            Log.d("Unregistered receiver", "true");
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
         try {
             HelperClass helperClass = new HelperClass(this);
             Intent intent = getIntent();
@@ -252,6 +297,16 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         Intent intent = getIntent();
+        //create intent filter for otp sms broadcast
+        try {
+            IntentFilter smsFilter = new IntentFilter();
+            smsFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
+            registerReceiver(otpReceiver, smsFilter);
+            Log.d("Registered receiver", "true");
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
+        }
+
         checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {

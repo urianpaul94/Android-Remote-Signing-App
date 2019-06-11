@@ -236,6 +236,8 @@ public class HelperClass {
     public static void verifyStoragePermissions(Activity activity) {
         int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
         int readPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
+        int readSmsPermission=ActivityCompat.checkSelfPermission(activity,Manifest.permission.READ_SMS);
+        int receiveSmsPermission=ActivityCompat.checkSelfPermission(activity,Manifest.permission.RECEIVE_SMS);
 
         if (permission != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -245,6 +247,13 @@ public class HelperClass {
             );
         }
         if (readPermission != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        }
+        if (readSmsPermission != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                     activity,
                     PERMISSIONS_STORAGE,
