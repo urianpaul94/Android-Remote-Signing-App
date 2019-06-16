@@ -141,16 +141,16 @@ public class ConfigurationActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.d("Error", e.getMessage());
             }
-            Intent intent=new Intent();
-            ArrayList<String> newArray=new ArrayList<>();
+            Intent intent = new Intent();
+            ArrayList<String> newArray = new ArrayList<>();
             newArray.add(selectedCertificateID);
             newArray.add(selectedCertificatePath);
-            intent.putExtra("selectedDetails",newArray);
-            setResult(GLOBAL_CERTIFICATE,intent);
+            intent.putExtra("selectedDetails", newArray);
+            setResult(GLOBAL_CERTIFICATE, intent);
             finish();
         } else {
             Intent intent = new Intent();
-            intentDetails=new ArrayList<>();
+            intentDetails = new ArrayList<>();
             intentDetails.add(selectedCertificateID);
             intentDetails.add(selectedCertificatePath);
             intent.putExtra("selectedDetails", intentDetails);
@@ -158,6 +158,7 @@ public class ConfigurationActivity extends AppCompatActivity {
             finish();
         }
     }
+
     public void SetDateAndTime() {
         Date currentTime = Calendar.getInstance().getTime();
         TextView date = (TextView) findViewById(R.id.time);
@@ -167,7 +168,26 @@ public class ConfigurationActivity extends AppCompatActivity {
     }
 
     public void cancelDefCertificate(View view) {
-        finish();
+        HelperClass helperClass = new HelperClass(this);
+        String certificateID="";
+        try{
+            certificateID = helperClass.getValue(this, SAVED_CRT);
+        }catch (Exception e){
+            Log.d("Error",e.getMessage());
+        }
+        final String url = BASE_URL + "credentials/sendOTP";
+        //resend otp if the user doesn't change the default certificate.
+        if (!certificateID.equals("Not found!") && !certificateID.equals("")) {
+            try {
+                SendOtp sendOtp = new SendOtp();
+                sendOtp.execute(url, certificateID, authToken);
+                finish();
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+        }else {
+            finish();
+        }
     }
 
     private static long hexToLong(String hex) {
@@ -192,7 +212,7 @@ public class ConfigurationActivity extends AppCompatActivity {
         String path = Environment.getExternalStorageDirectory().toString() + "/Download/Private/";
         String location = "";
         try {
-            location = path + crtFileName.replace(" ","") + ".cer";
+            location = path + crtFileName.replace(" ", "") + ".cer";
             FileOutputStream file = new FileOutputStream(new File(location));
             OutputStreamWriter writer = new OutputStreamWriter(file);
             writer.write(crt);
@@ -322,6 +342,62 @@ public class ConfigurationActivity extends AppCompatActivity {
         public String subjectDN;
         public String validFrom;
         public String validTo;
+    }
+
+    private class SendOtp extends AsyncTask<String, Void, Boolean> {
+        @Override
+        protected Boolean doInBackground(String... urls) {
+            Boolean response = false;
+            JSONObject jsonObject = new JSONObject();
+            try {
+                jsonObject.accumulate("credentialID", urls[1]);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            try {
+                URL url = new URL(urls[0]);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.addRequestProperty("AUTHORIZATION", "Bearer " + urls[2]);
+                conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                os.writeBytes(jsonObject.toString());
+                os.flush();
+                os.close();
+
+                Log.i("STATUS_Certificates", String.valueOf(conn.getResponseCode()));
+                Log.i("MSG_Certificates", conn.getResponseMessage());
+
+                StringBuilder sb = new StringBuilder();
+                int httpsResult = conn.getResponseCode();
+                if (httpsResult == HttpsURLConnection.HTTP_OK) {
+                    response = true;
+                    BufferedReader br = new BufferedReader(new InputStreamReader(
+                            conn.getInputStream(), "utf-8"));
+                    String line = null;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    br.close();
+                }
+
+                Log.d("OTP", sb.toString());
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            return response;
+        }
+
+        @Override
+        protected void onPostExecute(Boolean result) {
+            Log.d("Sent OTP", result.toString());
+        }
+
     }
 
     private class GetCertInfo extends AsyncTask<String, Void, CredentialsInfo> {

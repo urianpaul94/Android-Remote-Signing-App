@@ -68,9 +68,12 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.sql.Time;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -268,6 +271,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         //unregister receiver for otp-sms
+        try{
+            tanCode.setText("");
+            signPasswd.setText("");
+        }catch (Exception e){
+            Log.d("Error",e.getMessage());
+        }
         try {
             unregisterReceiver(otpReceiver);
             Log.d("Unregistered receiver", "true");
@@ -372,20 +381,40 @@ public class MainActivity extends AppCompatActivity {
                                         //read certificate/certificate's path from shared preferences for default certificate.
                                         savedCertificate = helperClass.getValue(this, SAVED_CRT);
                                         savedCertificatePath = helperClass.getValue(this, SAVED_PATH);
-                                        if (!savedCertificate.isEmpty() && !savedCertificatePath.equals("Not found!")) {
+                                        if (!savedCertificate.isEmpty() && !savedCertificatePath.equals("Not found!") && !savedCertificate.equals("Not found!")) {
                                             try {
-                                                final String url = BASE_URL + "credentials/sendOTP";
-                                                //save default certificate to certificate for sign class.
-                                                certificateForSign.isOneTime = false;
-                                                certificateForSign.certificateID = savedCertificate;
-                                                certificateForSign.certificatePath = savedCertificatePath;
+                                                //verify if certID belongs to the logged user.
+                                                GetCredentialIds getCredentialIds = new GetCredentialIds();
+                                                String urlCredIds = BASE_URL + "credentials/list";
+                                                boolean isSameUser = false;
+                                                try {
+                                                    credentialIds = new ArrayList<>();
+                                                    credentialIds = getCredentialIds.execute(urlCredIds, authToken).get();
+                                                } catch (Exception e) {
+                                                    Log.d("Error", e.getMessage());
+                                                }
+                                                if (credentialIds.size() > 0) {
+                                                    for (String credId : credentialIds) {
+                                                        if (credId.equals(savedCertificate)) {
+                                                            isSameUser = true;
+                                                        }
+                                                    }
+                                                }
+                                                // if is CredId belongs to the logged user, sendOtp!
+                                                if (isSameUser) {
+                                                    //save default certificate to certificate for sign class.
+                                                    certificateForSign.isOneTime = false;
+                                                    certificateForSign.certificateID = savedCertificate;
+                                                    certificateForSign.certificatePath = savedCertificatePath;
 
-                                                SendOtp sendOtp = new SendOtp();
-                                                sendOtp.execute(url, savedCertificate, authToken);
-                                                tanCode.setVisibility(View.VISIBLE);
-                                                signPasswd.setVisibility(View.VISIBLE);
-                                                checkBox.setVisibility(View.VISIBLE);
-                                                signButton.setVisibility(View.VISIBLE);
+                                                    final String url = BASE_URL + "credentials/sendOTP";
+                                                    SendOtp sendOtp = new SendOtp();
+                                                    sendOtp.execute(url, savedCertificate, authToken);
+                                                    tanCode.setVisibility(View.VISIBLE);
+                                                    signPasswd.setVisibility(View.VISIBLE);
+                                                    checkBox.setVisibility(View.VISIBLE);
+                                                    signButton.setVisibility(View.VISIBLE);
+                                                }
                                             } catch (Exception e) {
                                                 Log.d("Error", e.getMessage());
                                             }
@@ -583,6 +612,11 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<String> signList = new ArrayList<>();
         String url = BASE_URL + "signatures/signHash";
         SignClass signClass = new SignClass();
+        String toastmsg = "";
+        toastmsg = "" + certificateForSign.isOneTime + " " + certificateForSign.certificateID + " " + certificateForSign.certificatePath;
+        Toast.makeText(MainActivity.this,
+                toastmsg, Toast.LENGTH_LONG).show();
+
         try {
             if (certificateForSign.isOneTime) {
                 if (!certificateForSign.certificateID.isEmpty() && !certificateForSign.certificatePath.equals("Not found!")) {
@@ -915,8 +949,11 @@ public class MainActivity extends AppCompatActivity {
                 m_Handler.setRemoteSigningMode(true);
                 m_Handler.setOnRemoteSign(new TSBPDFRemoteSignEvent(OnRemoteSign));
                 m_Handler.setIgnoreChainValidationErrors(true);
+
+                Date myDate = helperClass.getUTCdatetimeAsDate();
+                Log.d("MyDate", myDate.toString());
                 Date date = new Date();
-                sig.setSigningTime(date);
+                sig.setSigningTime(myDate);
 
                 if (CloseCurrentDocument(true)) {
                     if (!wrongCredentials) {
@@ -1281,6 +1318,75 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //CredentialList class
+    private class GetCredentialIds extends AsyncTask<String, Void, ArrayList<String>> {
+        @Override
+        protected ArrayList<String> doInBackground(String... urls) {
+            JSONObject jsonObject = new JSONObject();
+            ArrayList<String> credIds = new ArrayList<>();
+            String response = "";
+            try {
+                jsonObject.accumulate("", "");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            try {
+                URL url = new URL(urls[0]);
+                HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.addRequestProperty("AUTHORIZATION", "Bearer " + urls[1]);
+                conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setDoOutput(true);
+                conn.setDoInput(true);
+
+                DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                os.writeBytes(jsonObject.toString());
+                os.flush();
+                os.close();
+
+                Log.i("STATUS_GetCredentials", String.valueOf(conn.getResponseCode()));
+                Log.i("MSG_GetCredentials", conn.getResponseMessage());
+
+                StringBuilder sb = new StringBuilder();
+                int httpsResult = conn.getResponseCode();
+                if (httpsResult == HttpsURLConnection.HTTP_OK) {
+                    BufferedReader br = new BufferedReader(new InputStreamReader(
+                            conn.getInputStream(), "utf-8"));
+                    String line = null;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    br.close();
+
+                    Gson gson = new Gson();
+                    CredentialsIds credentialsIds = gson.fromJson(sb.toString(), CredentialsIds.class);
+                    return credentialsIds.credentialIDs;
+                } else {
+                    BufferedReader br = new BufferedReader(new InputStreamReader(
+                            conn.getErrorStream(), "utf-8"));
+                    String line = null;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line + "\n");
+                    }
+                    br.close();
+
+                    Gson gson = new Gson();
+                    ErrorCode errorCode = new ErrorCode();
+                    errorCode = gson.fromJson(sb.toString(), ErrorCode.class);
+                }
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<String> result) {
+        }
+    }
+
     //get credential info, if user's certificate is not found on phone.
     private class GetCertInfo extends AsyncTask<String, Void, CredentialsInfo> {
         @Override
@@ -1365,6 +1471,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //JSON Classes
+    public class CredentialsIds {
+        public ArrayList<String> credentialIDs;
+        public String nextPageToken;
+    }
+
     public class ErrorCode {
         String error;
         String errorDescription;

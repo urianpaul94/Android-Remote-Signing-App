@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
+import android.net.ParseException;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -35,6 +36,11 @@ import android.view.Gravity;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.TimeZone;
+
 import static android.content.Context.CONNECTIVITY_SERVICE;
 import static android.support.v4.content.ContextCompat.getSystemService;
 
@@ -48,6 +54,7 @@ public class HelperClass {
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
+    private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
     public HelperClass(Context context) {
         this.helperContext = context;
@@ -160,12 +167,11 @@ public class HelperClass {
                 }
                 int imageColumnIndex = cursor.getColumnIndex(columnName);
                 ret = cursor.getString(imageColumnIndex);
+                cursor.close();
             }
         }
-
         return ret;
     }
-
 
     private boolean isAboveKitKat() {
         boolean ret = false;
@@ -233,32 +239,72 @@ public class HelperClass {
         return ret;
     }
 
+
+
+    public Date getUTCdatetimeAsDate() {
+        String str=getUTCdatetimeAsString();
+        if(str==null){
+            return null;
+        }
+        return stringDateToDate(getUTCdatetimeAsString());
+    }
+
+    private static String getUTCdatetimeAsString() {
+        final SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        final String utcTime = sdf.format(new Date());
+        return utcTime;
+    }
+
+    private static Date stringDateToDate(String StrDate) {
+        Date dateToReturn = null;
+        SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
+
+        try {
+            dateToReturn = (Date)dateFormat.parse(StrDate);
+        }
+        catch (ParseException e) {
+            e.printStackTrace();
+        } catch (java.text.ParseException e) {
+            e.printStackTrace();
+        }
+
+        return dateToReturn;
+    }
+
     public static void verifyStoragePermissions(Activity activity) {
         int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
         int readPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
         int readSmsPermission=ActivityCompat.checkSelfPermission(activity,Manifest.permission.READ_SMS);
         int receiveSmsPermission=ActivityCompat.checkSelfPermission(activity,Manifest.permission.RECEIVE_SMS);
-
+        String [] permissionRequests=new String[4];
+        int permissionNumber=0;
         if (permission != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    activity,
-                    PERMISSIONS_STORAGE,
-                    REQUEST_EXTERNAL_STORAGE
-            );
+            permissionRequests[permissionNumber]=Manifest.permission.WRITE_EXTERNAL_STORAGE;
+            permissionNumber++;
         }
         if (readPermission != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    activity,
-                    PERMISSIONS_STORAGE,
-                    REQUEST_EXTERNAL_STORAGE
-            );
+            permissionRequests[permissionNumber]=Manifest.permission.READ_EXTERNAL_STORAGE;
+            permissionNumber++;
         }
         if (readSmsPermission != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    activity,
-                    PERMISSIONS_STORAGE,
-                    REQUEST_EXTERNAL_STORAGE
-            );
+            permissionRequests[permissionNumber]=Manifest.permission.READ_SMS;
+            permissionNumber++;
+        }
+        if (receiveSmsPermission != PackageManager.PERMISSION_GRANTED) {
+            permissionRequests[permissionNumber]=Manifest.permission.RECEIVE_SMS;
+            permissionNumber++;
+        }
+        if(permissionNumber>0){
+            try {
+                ActivityCompat.requestPermissions(
+                        activity,
+                        permissionRequests,
+                        REQUEST_EXTERNAL_STORAGE
+                );
+            }catch (Exception e){
+                Log.d("Error",e.getMessage());
+            }
         }
     }
 
