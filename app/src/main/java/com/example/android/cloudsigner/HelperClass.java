@@ -15,7 +15,9 @@ import android.net.ConnectivityManager;
 import android.net.ParseException;
 import android.net.Uri;
 import android.os.Build;
+import android.os.CountDownTimer;
 import android.os.Environment;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
@@ -240,10 +242,9 @@ public class HelperClass {
     }
 
 
-
     public Date getUTCdatetimeAsDate() {
-        String str=getUTCdatetimeAsString();
-        if(str==null){
+        String str = getUTCdatetimeAsString();
+        if (str == null) {
             return null;
         }
         return stringDateToDate(getUTCdatetimeAsString());
@@ -261,9 +262,8 @@ public class HelperClass {
         SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
 
         try {
-            dateToReturn = (Date)dateFormat.parse(StrDate);
-        }
-        catch (ParseException e) {
+            dateToReturn = (Date) dateFormat.parse(StrDate);
+        } catch (ParseException e) {
             e.printStackTrace();
         } catch (java.text.ParseException e) {
             e.printStackTrace();
@@ -272,38 +272,52 @@ public class HelperClass {
         return dateToReturn;
     }
 
+    public boolean verifyGrantedPermissions(Activity activity) {
+        boolean granted = true;
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        int readPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
+        int readSmsPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_SMS);
+        int receiveSmsPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.RECEIVE_SMS);
+        if (permission == PackageManager.PERMISSION_DENIED || readPermission == PackageManager.PERMISSION_DENIED ||
+                readSmsPermission == PackageManager.PERMISSION_DENIED || receiveSmsPermission == PackageManager.PERMISSION_DENIED) {
+            granted = false;
+        }
+
+        return granted;
+    }
+
     public static void verifyStoragePermissions(Activity activity) {
         int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
         int readPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE);
-        int readSmsPermission=ActivityCompat.checkSelfPermission(activity,Manifest.permission.READ_SMS);
-        int receiveSmsPermission=ActivityCompat.checkSelfPermission(activity,Manifest.permission.RECEIVE_SMS);
-        String [] permissionRequests=new String[4];
-        int permissionNumber=0;
+        int readSmsPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.READ_SMS);
+        int receiveSmsPermission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.RECEIVE_SMS);
+        String[] permissionRequests = new String[4];
+        int permissionNumber = 0;
         if (permission != PackageManager.PERMISSION_GRANTED) {
-            permissionRequests[permissionNumber]=Manifest.permission.WRITE_EXTERNAL_STORAGE;
+            permissionRequests[permissionNumber] = Manifest.permission.WRITE_EXTERNAL_STORAGE;
             permissionNumber++;
         }
         if (readPermission != PackageManager.PERMISSION_GRANTED) {
-            permissionRequests[permissionNumber]=Manifest.permission.READ_EXTERNAL_STORAGE;
+            permissionRequests[permissionNumber] = Manifest.permission.READ_EXTERNAL_STORAGE;
             permissionNumber++;
         }
         if (readSmsPermission != PackageManager.PERMISSION_GRANTED) {
-            permissionRequests[permissionNumber]=Manifest.permission.READ_SMS;
+            permissionRequests[permissionNumber] = Manifest.permission.READ_SMS;
             permissionNumber++;
         }
         if (receiveSmsPermission != PackageManager.PERMISSION_GRANTED) {
-            permissionRequests[permissionNumber]=Manifest.permission.RECEIVE_SMS;
+            permissionRequests[permissionNumber] = Manifest.permission.RECEIVE_SMS;
             permissionNumber++;
         }
-        if(permissionNumber>0){
+        if (permissionNumber > 0) {
             try {
                 ActivityCompat.requestPermissions(
                         activity,
                         permissionRequests,
                         REQUEST_EXTERNAL_STORAGE
                 );
-            }catch (Exception e){
-                Log.d("Error",e.getMessage());
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
             }
         }
     }

@@ -8,12 +8,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.TimeZone;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
@@ -59,6 +61,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
+import java.lang.Thread;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
@@ -261,7 +264,6 @@ public class MainActivity extends AppCompatActivity {
         serialNumbers = new ArrayList<>();
         m_Handler = new TElPDFAdvancedPublicKeySecurityHandler();
         helperClass.verifyStoragePermissions(MainActivity.this);
-
         //1. Obtain auth_code.
         Login(authorizeButton);
     }
@@ -271,11 +273,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         //unregister receiver for otp-sms
-        try{
+        try {
             tanCode.setText("");
             signPasswd.setText("");
-        }catch (Exception e){
-            Log.d("Error",e.getMessage());
+        } catch (Exception e) {
+            Log.d("Error", e.getMessage());
         }
         try {
             unregisterReceiver(otpReceiver);
@@ -548,12 +550,17 @@ public class MainActivity extends AppCompatActivity {
                 if (myClass.isAirplaneModeOn(context)) {
                     myClass.AlertDialogBuilder("Airplane mode is on!", context, "Services state");
 
-                } else if (myClass.InternetConnection() == false) {
+                } else if (!myClass.InternetConnection()) {
                     myClass.AlertDialogBuilder("You must enable Internet Connection to be able to sign documents!",
                             context, "Internet Error!");
 
+                } else if (!myClass.verifyGrantedPermissions(MainActivity.this)) {
+                    final Toast toast = Toast.makeText(MainActivity.this, "Not enough permissions!", Toast.LENGTH_SHORT);
+                    TextView toastMessage = toast.getView().findViewById(android.R.id.message);
+                    toastMessage.setTextColor(Color.RED);
+                    toast.show();
+                    myClass.verifyStoragePermissions(MainActivity.this);
                 } else {
-                    //startActivity(new Intent(context, ConfigurationActivity.class));
                     startActivity(intent);
                 }
 
@@ -627,11 +634,7 @@ public class MainActivity extends AppCompatActivity {
                     signList = signClass.execute(url, certificateForSign.certificateID, hash, sadResponse).get();
                 }
             }
-          /*  if (!oneTimeCertificate.isEmpty()) {
-                signList = signClass.execute(url, oneTimeCertificate, hash, sadResponse).get();
-            } else if (!savedCertificate.isEmpty()) {
 
-            }*/
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
