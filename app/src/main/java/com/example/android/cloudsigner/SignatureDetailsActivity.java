@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import SecureBlackbox.Base.SBPKICommon;
+import SecureBlackbox.Base.SBUtils;
 import SecureBlackbox.Base.TElAbstractCRL;
 import SecureBlackbox.Base.TElFileStream;
 import SecureBlackbox.Base.TElMemoryCRLStorage;
@@ -94,12 +95,6 @@ public class SignatureDetailsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signature_details);
-      /*  int width, height;
-        DisplayMetrics dm = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(dm);
-        width = dm.widthPixels;
-        height = dm.heightPixels;
-        getWindow().setLayout((int) (width * .95), (int) (height * .85));*/
         expandableListDetail = new HashMap<>();
         signaturesNumber = findViewById(R.id.signNo);
         closeBtn=findViewById(R.id.closeButton);
@@ -249,7 +244,8 @@ public class SignatureDetailsActivity extends AppCompatActivity {
                     Log.d("Error",e.getMessage());
                 }
                 try{
-                    handler.setValidationMoment(new Date());
+                    //handler.setValidationMoment(new Date());
+                    handler.setValidationMoment(SBUtils.utcNow());
                     sig.validate();
                     if(!sig.isDocumentSigned()){
                         tryValidate = "Signature does not cover the entire document (signed revision)";
@@ -317,17 +313,24 @@ public class SignatureDetailsActivity extends AppCompatActivity {
     private void PrepareValidation(TElPDFAdvancedPublicKeySecurityHandler handler) {
         m_TrustedCerts.clear();
         m_KnownCRLs.clear();
+
         try {
             root_cert.loadFromFileAuto(rootPath,"");
-            intermediate_cert.loadFromFileAuto(intermediatePath,"");
-            m_TrustedCerts.add(root_cert,false);
-            m_TrustedCerts.add(intermediate_cert,false);
+            //intermediate_cert.loadFromFileAuto(intermediatePath,"");
+            TElX509Certificate myCrt=new TElX509Certificate();
+            if(!certificatePath.equals("")){
+                myCrt.loadFromFileAuto(certificatePath,"");
+            }
+            Log.d("CrtPath",certificatePath);
+            m_TrustedCerts.add(myCrt,false);
+            //m_TrustedCerts.add(root_cert,false);
+           // m_TrustedCerts.add(intermediate_cert,false);
         }
         catch (Exception e)
         {
             Log.d("Error",e.getMessage());
         }
-        try{
+   /*     try{
             //FileInputStream f = new FileInputStream(crlPath);
             TElFileStream fileStream=new TElFileStream(crlPath,0);
             try
@@ -340,10 +343,10 @@ public class SignatureDetailsActivity extends AppCompatActivity {
                 fileStream.close();
             }
 
-            m_KnownCRLs.add(cert_crl);
+            //m_KnownCRLs.add(cert_crl);
         }catch (Exception e){
             Log.d("Error",e.getMessage());
-        }
+        }*/
         handler.setOnCertValidatorPrepared(new TSBPDFCertValidatorPreparedEvent(onCertValidatorPrepared));
         handler.setOnCertValidatorFinished(new TSBPDFCertValidatorFinishedEvent(onCertValidatorFinished));
         int k = m_CertValidationLog.indexOfObject(handler);
@@ -371,8 +374,8 @@ public class SignatureDetailsActivity extends AppCompatActivity {
                 TObject sender, TElX509CertificateValidator CertValidator,
                 TElX509Certificate Cert) {
             CertValidator.addTrustedCertificates(m_TrustedCerts);
-            CertValidator.addKnownCertificates(m_LocalRevInfo.getCertificates());
-            CertValidator.addKnownCRLs(m_KnownCRLs);
+            CertValidator.addKnownCertificates(m_TrustedCerts);
+            //CertValidator.addKnownCRLs(m_KnownCRLs);
             for (int i = 0; i < m_LocalRevInfo.getOCSPResponseCount(); i++) {
                 TElOCSPResponse resp = new TElOCSPResponse();
                 try {
